@@ -825,60 +825,80 @@ export default function AdvisorSprintIntelligence() {
 
     const attemptFetch = () => fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-tool-name': 'advisor-intelligence', 'Connection': 'keep-alive' },
+      headers: { 'Content-Type': 'application/json', 'x-tool-name': 'advisor-intelligence', 'Cache-Control': 'no-store' },
       signal,
       body: JSON.stringify({ prompt, agentId, market: 'US', mode: 'saas' }),
     });
 
-    let res;
-    try {
-      res = await attemptFetch();
-    } catch (networkErr) {
-      if (signal.aborted) throw networkErr;
-      console.warn(`[${agentId}] Network error, retrying in 8s:`, networkErr.message);
-      setStatuses(s => ({ ...s, [agentId]: 'retrying…' }));
-      await new Promise(r => setTimeout(r, 8000));
-      if (signal.aborted) throw networkErr;
-      res = await attemptFetch();
-    }
-    if (!res.ok) {
-      const err = await res.text().catch(() => '');
-      throw new Error(err || `Server error: ${res.status}`);
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let fullText = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (signal.aborted) { reader.cancel(); break; }
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const event = JSON.parse(line.slice(6));
-          if (event.type === 'chunk') fullText += event.text;
-          if (event.type === 'searching') setStatuses(s => ({ ...s, [agentId]: `searching: ${event.query.slice(0,40)}…` }));
-          if (event.type === 'done') fullText = event.text || fullText;
-          if (event.type === 'source' && event.url) {
-            setSources(prev => {
-              if (prev.find(s => s.url === event.url)) return prev;
-              return [...prev, { url: event.url, title: event.title, agent: event.agent }].slice(0,100);
-            });
-          }
-          if (event.type === 'error') {
-            if (event.message?.includes('rate_limit')) throw new Error('RATE_LIMIT:' + event.message);
-            throw new Error(event.message);
-          }
-        } catch(e) { if (e.message && !e.message.startsWith('JSON')) throw e; }
+    const runWithRetry = async (attempt = 1) => {
+      let res;
+      try {
+        res = await attemptFetch();
+      } catch (networkErr) {
+        if (signal.aborted) throw networkErr;
+        if (attempt >= 3) throw networkErr;
+        console.warn(`[${agentId}] Fetch failed (attempt ${attempt}), retrying in 10s:`, networkErr.message);
+        setStatuses(s => ({ ...s, [agentId]: `retrying… (${attempt}/3)` }));
+        await new Promise(r => setTimeout(r, 10000));
+        if (signal.aborted) throw networkErr;
+        return runWithRetry(attempt + 1);
       }
-    }
-    return fullText;
+
+      if (!res.ok) {
+        const err = await res.text().catch(() => '');
+        throw new Error(err || `Server error: ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (signal.aborted) { reader.cancel(); break; }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === 'chunk') fullText += event.text;
+              if (event.type === 'searching') setStatuses(s => ({ ...s, [agentId]: `searching: ${event.query.slice(0,40)}…` }));
+              if (event.type === 'done') fullText = event.text || fullText;
+              if (event.type === 'source' && event.url) {
+                setSources(prev => {
+                  if (prev.find(s => s.url === event.url)) return prev;
+                  return [...prev, { url: event.url, title: event.title, agent: event.agent }].slice(0,100);
+                });
+              }
+              if (event.type === 'error') {
+                if (event.message?.includes('rate_limit')) throw new Error('RATE_LIMIT:' + event.message);
+                throw new Error(event.message);
+              }
+            } catch(e) { if (e.message && !e.message.startsWith('JSON')) throw e; }
+          }
+        }
+      } catch (streamErr) {
+        reader.cancel().catch(() => {});
+        // Mid-stream QUIC drop — retry if we haven't hit limit
+        if (!signal.aborted && attempt < 3 && (streamErr.message?.includes('QUIC') || streamErr.message?.includes('network') || streamErr.name === 'TypeError')) {
+          console.warn(`[${agentId}] Stream dropped (attempt ${attempt}), retrying in 10s:`, streamErr.message);
+          setStatuses(s => ({ ...s, [agentId]: `stream retry… (${attempt}/3)` }));
+          await new Promise(r => setTimeout(r, 10000));
+          if (signal.aborted) throw streamErr;
+          return runWithRetry(attempt + 1);
+        }
+        throw streamErr;
+      }
+
+      return fullText;
+    };
+
+    return runWithRetry();
   }, [setSources, setStatuses]);
 
   // ── runAgent ────────────────────────────────────────────────────────────────
