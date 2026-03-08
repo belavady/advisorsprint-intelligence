@@ -641,10 +641,10 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
   };
 
   const header = (label) => `
-    <div style="width:100%;background:${V.navy};padding:12px 50px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:monospace;font-size:7px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:#fff;opacity:.7;">AdvisorSprint Intelligence</div>
-      <div style="font-family:monospace;font-size:7px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:${V.blueMid};">${label}</div>
-      <div style="font-family:monospace;font-size:7px;color:#fff;font-weight:700;letter-spacing:.1em;">HARSHA BELAVADY</div>
+    <div style="background:#0f1f3d;height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 50px;">
+      <div style="font-family:'Playfair Display',serif;font-size:13px;color:#fff;letter-spacing:.03em;"><em>Advisor</em>Sprint Intelligence</div>
+      <div style="font-family:monospace;font-size:7px;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.9);font-weight:700;">${label}</div>
+      <div style="background:#2563eb;color:#fff;font-size:7px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:9px;">HARSHA BELAVADY</div>
     </div>`;
 
   const footer = (pageNum) => `
@@ -655,25 +655,43 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
 
   // Cover page
   const coverHtml = `
-    <div style="width:794px;min-height:1122px;position:relative;background:${V.navy};page-break-after:always;overflow:hidden;">
-      <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,${V.navy} 0%,${V.navyMid} 60%,${V.blue}22 100%);"></div>
-      <div style="position:relative;padding:80px 80px 60px;">
-        <div style="font-family:monospace;font-size:9px;font-weight:700;letter-spacing:.35em;text-transform:uppercase;color:${V.blueMid};margin-bottom:48px;">AdvisorSprint Intelligence</div>
-        <div style="width:50px;height:3px;background:${V.blue};margin-bottom:32px;"></div>
-        <div style="font-family:'Playfair Display',serif;font-size:52px;font-weight:700;color:#fff;line-height:1.05;margin-bottom:16px;">${company}</div>
-        ${acq ? `<div style="font-size:14px;color:${V.blueMid};font-family:'Instrument Sans',sans-serif;margin-bottom:8px;">Strategic Analysis in context of ${acq}</div>` : ''}
-        ${sector ? `<div style="font-size:12px;color:#ffffff80;font-family:monospace;letter-spacing:.1em;margin-bottom:4px;">${sector.toUpperCase()} · ${(stage||'').toUpperCase()}</div>` : ''}
-        <div style="font-size:11px;color:#ffffff60;font-family:monospace;margin-bottom:48px;">Generated ${dateStr} · ${elapsedStr}</div>
-        <div style="width:100%;height:1px;background:#ffffff20;margin-bottom:48px;"></div>
-        <div style="margin-top:0;">
-          <div style="font-size:9px;font-family:monospace;color:#ffffff50;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;">Analysis Coverage</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;">
-            ${SAAS_AGENTS.filter(a => a.id !== 'synopsis').map(a => `<span style="font-size:7px;font-family:monospace;color:${V.blueMid};background:#ffffff10;padding:4px 10px;border-radius:10px;letter-spacing:.06em;">${a.label}</span>`).join('')}
-          </div>
+<div style="width:794px;height:1122px;background:#0f1f3d;position:relative;overflow:hidden;page-break-after:always;">
+  <div style="position:absolute;top:0;right:0;width:380px;height:380px;background:linear-gradient(135deg,rgba(37,99,235,.3) 0%,transparent 70%);border-radius:0 0 0 380px;"></div>
+  <div style="position:absolute;bottom:-60px;left:-60px;width:300px;height:300px;border:1px solid rgba(255,255,255,.06);border-radius:50%;"></div>
+  <div style="position:absolute;inset:0;padding:65px 50px;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:'Playfair Display',serif;font-size:15px;color:rgba(255,255,255,.9);letter-spacing:.04em;"><em>Advisor</em>Sprint Intelligence</div>
+      <div style="font-family:monospace;font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.1em;">HARSHA BELAVADY</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;margin-bottom:20px;">
+      <div style="margin-bottom:40px;">
+        <div style="font-family:monospace;font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:#3b82f6;margin-bottom:14px;">10-Agent B2B Intelligence Report</div>
+        <div style="font-family:'Playfair Display',serif;font-size:52px;color:#fff;font-weight:900;line-height:.92;letter-spacing:-.02em;margin-bottom:12px;">${company}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.55);font-weight:300;letter-spacing:.05em;">${acq ? `Acquisition analysis &nbsp;·&nbsp; <strong style="color:rgba(255,255,255,.8);font-weight:500;">${acq}</strong>` : `${sector} · ${stage}`}</div>
+        <div style="margin-top:18px;display:flex;gap:20px;align-items:center;">
+          <div style="font-family:monospace;font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.06em;font-weight:600;">Generated ${dateStr}</div>
+          <div style="width:1px;height:14px;background:rgba(255,255,255,.2);"></div>
+          <div style="font-family:monospace;font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;">${elapsedStr}</div>
         </div>
       </div>
-    </div>`;
-
+    </div>
+    <div style="width:100%;">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden;margin-bottom:12px;">
+        ${agentPages.map(ag => `
+          <div style="background:rgba(255,255,255,${ag.wave==='2'?'.07':'.05'});padding:12px 14px;">
+            <div style="font-family:monospace;font-size:6px;color:rgba(${ag.wave==='2'?'59,130,246,.7':'255,255,255,.3'});letter-spacing:.14em;margin-bottom:6px;">AGENT ${ag.num} · WAVE ${ag.wave}</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.85);font-weight:600;line-height:1.3;">${ag.title}</div>
+          </div>`).join('')}
+        <div style="background:rgba(37,99,235,.25);padding:12px 14px;">
+          <div style="font-family:monospace;font-size:6px;color:rgba(59,130,246,.9);letter-spacing:.14em;margin-bottom:6px;">AGENT 10 · WAVE 3</div>
+          <div style="font-size:9px;color:#fff;font-weight:700;line-height:1.3;">Executive Synopsis</div>
+          <div style="font-size:7px;color:rgba(255,255,255,.4);margin-top:3px;">Opus 4 · Full synthesis</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`
   // Agent pages
   const agentPageHtml = agentPages.map((ag, i) => `
     <div style="width:794px;min-height:1122px;position:relative;background:#fff;page-break-after:always;overflow:hidden;">
