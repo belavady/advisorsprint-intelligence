@@ -723,17 +723,46 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
       ${footer(12)}
     </div>`;
 
-  const sourcesHtml = sources && sources.length ? `
-    <div style="width:794px;min-height:400px;position:relative;background:#fff;overflow:hidden;">
-      ${header('SOURCES & REFERENCES')}
-      <div style="padding:26px 50px;">
-        <div style="font-family:'Playfair Display',serif;font-size:16px;color:${V.navy};font-weight:700;margin-bottom:12px;">Sources & References</div>
-        <div style="columns:2;column-gap:24px;">
-          ${sources.slice(0,60).map(s => `<div style="break-inside:avoid;margin-bottom:5px;font-size:7px;color:#555;"><span style="color:${V.blue};font-family:monospace;font-size:6px;">[${(s.agent||'').toUpperCase()}]</span> <a href="${s.url}" style="color:${V.navy};text-decoration:none;">${s.title||s.url}</a></div>`).join('')}
+  const sourcesHtml = `
+    <div style="width:794px;min-height:1122px;position:relative;background:#fff;page-break-after:always;overflow:hidden;">
+      ${header('SOURCES & RESEARCH METHODOLOGY')}
+      <div style="padding:26px 50px 36px;">
+        <div style="font-family:monospace;font-size:7px;letter-spacing:.18em;text-transform:uppercase;color:#2563eb;margin-bottom:4px;">Research Transparency</div>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;color:#0f1f3d;font-weight:700;margin-bottom:3px;">Sources & Confidence Methodology</div>
+        <div style="height:2px;background:linear-gradient(90deg,#0f1f3d 0%,#2563eb 40%,transparent 100%);margin-bottom:18px;"></div>
+        <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+          <div>
+            <div style="font-size:9px;font-weight:700;color:#0f1f3d;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Confidence Framework</div>
+            <div style="padding:12px;background:#f0f4ff;border-radius:5px;border:1px solid #dbeafe;margin-bottom:10px;">
+              <div style="display:flex;gap:7px;margin-bottom:8px;"><span style="background:#e8f5ee;color:#2d7a4f;font-size:7px;font-family:monospace;padding:2px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">● HIGH</span><div style="font-size:7.5px;color:#3a3a3a;">Directly cited from a named, datable source — SEC filing, verified press, company announcement, industry report</div></div>
+              <div style="display:flex;gap:7px;margin-bottom:8px;"><span style="background:#fef3e2;color:#c97d20;font-size:7px;font-family:monospace;padding:2px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">● MED</span><div style="font-size:7.5px;color:#3a3a3a;">Triangulated from 2+ indirect signals — funding rounds, headcount data, comparable company benchmarks</div></div>
+              <div style="display:flex;gap:7px;"><span style="background:#f0f0f0;color:#888;font-size:7px;font-family:monospace;padding:2px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">● LOW</span><div style="font-size:7.5px;color:#3a3a3a;">Single unverified signal or logical extrapolation. Directional only — do not use for financial decisions.</div></div>
+            </div>
+            <div style="font-size:7.5px;color:#666;line-height:1.7;padding:10px;background:#f8faff;border-left:3px solid #2563eb;border-radius:0 4px 4px 0;">
+              <strong style="color:#2563eb;">Note:</strong> ${company} is a private company. Revenue and valuation figures sourced from verified press and investor signals. ARR, margins, and unit economics are triangulated estimates with explicit confidence labels — treat accordingly.
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+              <div style="font-size:9px;font-weight:700;color:#0f1f3d;text-transform:uppercase;letter-spacing:.06em;">Sources Cited</div>
+              <div style="font-family:monospace;font-size:7px;color:#2563eb;font-weight:600;">${(sources||[]).length} sources checked</div>
+            </div>
+            <div style="font-size:7.5px;color:#3a3a3a;line-height:1.4;">
+              ${(sources || []).slice(0, 40).map((s, i) =>
+                `<div style="display:flex;gap:6px;padding:4px 6px;background:${i%2===0?'#f8faff':'#fff'};border-left:2px solid ${i%2===0?'#0f1f3d':'#dbeafe'};">
+                  <span style="font-family:monospace;font-size:6.5px;color:#2563eb;font-weight:600;flex-shrink:0;width:14px;">${i+1}</span>
+                  <span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${s.title || s.url}</span>
+                </div>`
+              ).join('') || '<div style="color:#999;font-style:italic;padding:8px;">Sources populated after full run — test mode shows Agent 1 only.</div>'}
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:18px;padding:13px;background:#0f1f3d;border-radius:5px;color:rgba(255,255,255,.7);font-size:7.5px;line-height:1.7;">
+          <strong style="color:#fff;">Disclaimer:</strong> Generated by AdvisorSprint Intelligence's 10-agent AI system using live web search. Strategic thinking tool only — not a substitute for primary research or professional financial advice.
         </div>
       </div>
-      ${footer(13)}
-    </div>` : '';
+      ${footer(2)}
+    </div>`;
 
   return `<!DOCTYPE html><html><head>
     <meta charset="UTF-8"/>
@@ -741,9 +770,9 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#e2e8f0;font-family:'Instrument Sans',sans-serif;}@media print{body{background:#fff;}}</style>
   </head><body>
     ${coverHtml}
-    ${agentPageHtml}
-    ${synopsisHtml}
     ${sourcesHtml}
+    ${synopsisHtml}
+    ${agentPageHtml}
   </body></html>`;
 }
 
