@@ -151,25 +151,27 @@ function renderSaaSVerdict(verdictRow) {
 
 function renderMarketSaaS(db) {
   let h = '';
-  // Category map — horizontal bar chart by revenue
   if (db.categoryMap && db.categoryMap.length) {
-    h += sectionLabel('Competitive Landscape — Est. Revenue $M');
-    const maxRev = Math.max(...db.categoryMap.map(c => c.revenueM||0), 1);
     const posColors = { leader: V.navy, challenger: V.blue, niche: V.inkMid, emerging: V.amber };
-    db.categoryMap.forEach(c => {
-      const pct = Math.max(((c.revenueM||0)/maxRev)*100, 2);
+    h += sectionLabel('Competitive Landscape');
+    h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
+      <thead><tr>
+        <th style="background:${V.navy};color:#fff;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;">Competitor</th>
+        <th style="background:${V.navy};color:#fff;padding:5px 8px;text-align:right;">Est. ARR / Revenue</th>
+        <th style="background:${V.navy};color:#fff;padding:5px 8px;text-align:center;">Growth Signal</th>
+        <th style="background:${V.navy};color:#fff;padding:5px 8px;text-align:center;">Position</th>
+      </tr></thead><tbody>`;
+    db.categoryMap.forEach((c,i) => {
       const col = posColors[c.position] || V.inkMid;
-      h += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-        <div style="width:90px;font-size:7px;font-weight:600;color:${V.inkMid};flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.competitor}</div>
-        <div style="flex:1;position:relative;height:14px;background:${V.sand};border-radius:2px;overflow:hidden;">
-          <div style="width:${pct}%;height:100%;background:${col};border-radius:2px;"></div>
-          ${pct > 15 ? `<span style="position:absolute;left:4px;top:50%;transform:translateY(-50%);font-size:7px;font-weight:700;color:#fff;">${fmtMoney(c.revenueM)}</span>` : ''}
-          ${pct <= 15 ? `<span style="position:absolute;left:${pct+1}%;top:50%;transform:translateY(-50%);font-size:7px;font-weight:700;color:${V.inkMid};">${fmtMoney(c.revenueM)}</span>` : ''}
-        </div>
-        <span style="font-size:6px;color:${col};font-family:monospace;font-weight:700;width:55px;text-align:right;">${c.position}${c.growth ? ' · +'+c.growth+'%' : ''}</span>
-      </div>`;
+      h += `<tr>
+        <td style="padding:5px 8px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:700;color:${V.navy};">${c.competitor}</td>
+        <td style="padding:5px 8px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:right;font-weight:700;color:${V.navy};">${fmtMoney(c.revenueM)}</td>
+        <td style="padding:5px 8px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;color:${V.inkMid};">${c.growth ? '+'+c.growth+'% YoY' : '—'}</td>
+        <td style="padding:5px 8px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;color:${col};">${c.position}</td>
+      </tr>`;
     });
-    h += `<div style="font-size:6.5px;color:${V.inkFaint};margin-top:3px;">Revenue estimates from public signals. Growth = YoY signal.</div>`;
+    h += `</tbody></table>`;
+    h += `<div style="font-size:6px;color:${V.inkFaint};margin-bottom:8px;">Revenue estimates from public signals. Confidence levels shown in agent prose.</div>`;
   }
   // Structural forces
   if (db.structuralForces && db.structuralForces.length) {
@@ -210,18 +212,18 @@ function renderProductSaaS(db) {
     h += sectionLabel('Disintermediation Risks');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;font-size:6.5px;letter-spacing:.06em;">Threat</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Probability</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Timeline</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Impact</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;">Threat</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Probability</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Timeline</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Impact</th>
       </tr></thead><tbody>`;
     db.disintermediationRisks.forEach((r,i) => {
       const impactCol = r.impact === 'existential' ? V.red : r.impact === 'serious' ? V.amber : V.green;
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};">${r.threat}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;color:${r.probability==='H'?V.red:r.probability==='M'?V.amber:V.green};">${r.probability}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${r.timeline}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;color:${impactCol};">${r.impact}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;">${r.threat}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;color:${r.probability==='H'?V.red:r.probability==='M'?V.amber:V.green};">${r.probability}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${r.timeline}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;color:${impactCol};">${r.impact}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -250,18 +252,18 @@ function renderGTMSaaS(db) {
     h += sectionLabel('Pricing Model Comps');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;font-size:6.5px;">Company</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Model</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Est. ACV</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">NRR Signal</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;font-size:6.5px;">Company</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Model</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Est. ACV</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">NRR Signal</th>
       </tr></thead><tbody>`;
     db.pricingComps.forEach((c,i) => {
       const nrrCol = c.nrrSignal === 'strong' ? V.green : c.nrrSignal === 'moderate' ? V.amber : V.red;
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-weight:600;">${c.company}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};">${c.model}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;">${c.avcEst||c.avgACV||'—'}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;color:${nrrCol};">${c.nrrSignal}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:600;">${c.company}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;">${c.model}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;">${c.avcEst||c.avgACV||'—'}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;color:${nrrCol};">${c.nrrSignal}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -275,18 +277,18 @@ function renderRevenueSaaS(db) {
     h += sectionLabel('ARR Triangulation — Three Methods');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;font-size:6.5px;">Method</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Estimate</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Confidence</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Basis</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;font-size:6.5px;">Method</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Estimate</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Confidence</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Basis</th>
       </tr></thead><tbody>`;
     db.arrTriangulation.forEach((m,i) => {
       const confCol = m.confidence === 'H' ? V.green : m.confidence === 'M' ? V.amber : V.red;
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-weight:600;">${m.method}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:800;color:${V.navy};">${m.estimate}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;color:${confCol};">${m.confidence}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-size:6.5px;">${m.basis}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:600;">${m.method}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:800;color:${V.navy};">${m.estimate}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;color:${confCol};">${m.confidence}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-size:6.5px;">${m.basis}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -317,22 +319,22 @@ function renderCustomerSaaS(db) {
     h += sectionLabel('Customer Segment Map');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;font-size:6.5px;">Segment</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Size</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Retention</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Expansion</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Verdict</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;font-size:6.5px;">Segment</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Size</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Retention</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Expansion</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Verdict</th>
       </tr></thead><tbody>`;
     db.segmentMap.forEach((s,i) => {
       const vColors = { engine: V.green, neutral: V.amber, anchor: V.red };
       const vc = vColors[s.verdict] || V.inkMid;
       const sig = v => v === 'strong' ? `<span style="color:${V.green}">●</span>` : v === 'moderate' ? `<span style="color:${V.amber}">●</span>` : `<span style="color:${V.red}">●</span>`;
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-weight:600;">${s.segment}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${s.sizeEst}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${sig(s.retentionSignal)}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${sig(s.expansionSignal)}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;color:${vc};">${s.verdict}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:600;">${s.segment}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${s.sizeEst}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${sig(s.retentionSignal)}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${sig(s.expansionSignal)}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;color:${vc};">${s.verdict}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -359,20 +361,20 @@ function renderCompetitiveSaaS(db) {
     h += sectionLabel('Competitor Battlecard');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;font-size:6.5px;">Competitor</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Revenue</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Attack Vector</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Vulnerability</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Threat</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;font-size:6.5px;">Competitor</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Revenue</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Attack Vector</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Vulnerability</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Threat</th>
       </tr></thead><tbody>`;
     db.competitorBattlecard.forEach((c,i) => {
       const tc = c.threat === 'H' ? V.red : c.threat === 'M' ? V.amber : V.green;
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-weight:600;">${c.competitor}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${fmtMoney(c.revenueM)}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-size:6.5px;">${c.attackVector}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-size:6.5px;">${c.vulnerability}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:800;color:${tc};">${c.threat}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:600;">${c.competitor}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${fmtMoney(c.revenueM)}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-size:6.5px;">${c.attackVector}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-size:6.5px;">${c.vulnerability}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:800;color:${tc};">${c.threat}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -416,19 +418,19 @@ function renderFundingSaaS(db) {
     h += sectionLabel('Transaction Comps');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;font-size:6.5px;">Company</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">ARR</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Multiple</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Outcome</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Acquirer</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;font-size:6.5px;">Company</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">ARR</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Multiple</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Outcome</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Acquirer</th>
       </tr></thead><tbody>`;
     db.compTable.forEach((c,i) => {
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-weight:600;">${c.company}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${fmtMoney(c.arrM)}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;">${c.multiple ? c.multiple+'x' : '—'}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${c.outcome}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};">${c.acquirer||'—'}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:600;">${c.company}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${fmtMoney(c.arrM)}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;">${c.multiple ? c.multiple+'x' : '—'}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${c.outcome}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;">${c.acquirer||'—'}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -456,17 +458,17 @@ function renderPricingSaaS(db) {
     h += sectionLabel('Pricing Benchmarks');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;font-size:6.5px;">Company</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Model</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Avg ACV</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Lesson</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;font-size:6.5px;">Company</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Model</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Avg ACV</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Lesson</th>
       </tr></thead><tbody>`;
     db.pricingComps.forEach((c,i) => {
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-weight:600;">${c.company}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};">${c.model}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;">${c.avgACV||c.avcEst||'—'}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-size:6.5px;">${c.lesson||'—'}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:600;">${c.company}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;">${c.model}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;">${c.avgACV||c.avcEst||'—'}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-size:6.5px;">${c.lesson||'—'}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -497,20 +499,20 @@ function renderIntlSaaS(db) {
     h += sectionLabel('Expansion Market Priorities');
     h += `<table style="width:100%;border-collapse:collapse;font-size:7px;margin-bottom:8px;">
       <thead><tr>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;font-size:6.5px;">#</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Market</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">TAM</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:center;">Readiness</th>
-        <th style="background:${V.navy};color:#fff;padding:4px 7px;text-align:left;">Main Barrier</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;font-size:6.5px;">#</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Market</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">TAM</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:center;">Readiness</th>
+        <th style="background:#0f1f3d !important;color:#fff !important;padding:5px 8px;text-align:left;">Main Barrier</th>
       </tr></thead><tbody>`;
     db.expansionMarkets.forEach((m,i) => {
       const rc = m.readiness === 'H' ? V.green : m.readiness === 'M' ? V.amber : V.red;
       h += `<tr>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:800;color:${V.blue};">${m.priority||i+1}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-weight:600;">${m.market}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;">${m.tam}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};text-align:center;font-weight:700;color:${rc};">${m.readiness}</td>
-        <td style="padding:4px 7px;background:${i%2?V.parchment:'#fff'};border:1px solid ${V.sand};font-size:6.5px;">${m.barrier}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:800;color:${V.blue};">${m.priority||i+1}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-weight:600;">${m.market}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;">${m.tam}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;text-align:center;font-weight:700;color:${rc};">${m.readiness}</td>
+        <td style="padding:4px 7px;background:${i%2?'#f0f4ff':'#fff'};border:1px solid #dbeafe;font-size:6.5px;">${m.barrier}</td>
       </tr>`;
     });
     h += '</tbody></table>';
@@ -665,7 +667,7 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
     </div>
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;margin-bottom:20px;">
       <div style="margin-bottom:40px;">
-        <div style="font-family:monospace;font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:#3b82f6;margin-bottom:14px;">10-Agent B2B Intelligence Report</div>
+        <div style="font-family:monospace;font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:#3b82f6;margin-bottom:14px;">10-Agent Strategic Intelligence Report</div>
         <div style="font-family:'Playfair Display',serif;font-size:52px;color:#fff;font-weight:900;line-height:.92;letter-spacing:-.02em;margin-bottom:12px;">${company}</div>
         <div style="font-size:13px;color:rgba(255,255,255,.55);font-weight:300;letter-spacing:.05em;">${acq ? `Acquisition analysis &nbsp;·&nbsp; <strong style="color:rgba(255,255,255,.8);font-weight:500;">${acq}</strong>` : `${sector} · ${stage}`}</div>
         <div style="margin-top:18px;display:flex;gap:20px;align-items:center;">
@@ -748,7 +750,7 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
               <div style="font-family:monospace;font-size:7px;color:#2563eb;font-weight:600;">${(sources||[]).length} sources checked</div>
             </div>
             <div style="font-size:7.5px;color:#3a3a3a;line-height:1.4;">
-              ${(sources || []).slice(0, 40).map((s, i) =>
+              ${(sources || []).slice(0, 20).map((s, i) =>
                 `<div style="display:flex;gap:6px;padding:4px 6px;background:${i%2===0?'#f8faff':'#fff'};border-left:2px solid ${i%2===0?'#0f1f3d':'#dbeafe'};">
                   <span style="font-family:monospace;font-size:6.5px;color:#2563eb;font-weight:600;flex-shrink:0;width:14px;">${i+1}</span>
                   <span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${s.title || s.url}</span>
@@ -766,8 +768,19 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
 
   return `<!DOCTYPE html><html><head>
     <meta charset="UTF-8"/>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Instrument+Sans:wght@400;600&family=DM+Sans:wght@400;800&display=swap" rel="stylesheet"/>
-    <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#e2e8f0;font-family:'Instrument Sans',sans-serif;}@media print{body{background:#fff;}}</style>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Instrument+Sans:wght@400;600;700&family=DM+Sans:wght@400;700;800&display=swap" rel="stylesheet"/>
+    <style>
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Instrument Sans',sans-serif;background:#e2e8f0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      @media print{@page{margin:0;size:A4 portrait;}body{background:#fff;}}
+      em{font-style:italic;}
+      table{width:100%;border-collapse:collapse;margin:8px 0;font-size:7.5px;}
+      thead tr{background:#0f1f3d !important;color:#fff !important;}
+      thead th{padding:6px 8px;text-align:left;font-weight:700;letter-spacing:.04em;border:1px solid #0f1f3d;color:#fff !important;font-size:7px;}
+      tbody tr:nth-child(even){background:#f0f4ff !important;}
+      tbody tr:nth-child(odd){background:#fff !important;}
+      tbody td{padding:5px 8px;border:1px solid #dbeafe;color:#1a1a2e;vertical-align:top;font-size:7px;}
+    </style>
   </head><body>
     ${coverHtml}
     ${sourcesHtml}
