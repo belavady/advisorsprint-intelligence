@@ -573,14 +573,52 @@ function renderSynopsisSaaS(db) {
     }
     h += '</div>';
   }
+  // Board-Level Questions
+  if (db.boardQuestions && db.boardQuestions.length) {
+    h += sectionLabel('Three Questions the Board Must Answer');
+    const answerColors = { 'primary research': V.blue, 'founder conversation': V.purple, 'market test': V.green, 'regulatory clarity': V.amber };
+    db.boardQuestions.forEach((q, i) => {
+      const ac = answerColors[q.answerableBy] || V.inkMid;
+      h += `<div style="margin-bottom:6px;padding:7px 10px;background:${V.parchment};border:1px solid ${V.sand};border-left:3px solid ${V.navy};border-radius:2px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;">
+          <span style="font-size:9px;font-weight:800;color:${V.navy};flex-shrink:0;min-width:14px;">${i+1}.</span>
+          <div style="flex:1;">
+            <div style="font-size:7.5px;font-weight:700;color:${V.navy};margin-bottom:3px;">${q.question}</div>
+            <div style="font-size:6.5px;color:${V.inkMid};margin-bottom:3px;">${q.whyItMatters}</div>
+            <span style="font-size:6px;font-family:monospace;background:${ac}18;color:${ac};padding:2px 6px;border-radius:8px;font-weight:700;">${q.answerableBy}</span>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
   return h;
+}
+
+function renderSaaSFallback(agentId) {
+  return `<div style="padding:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:3px;margin-bottom:8px;">
+    <div style="font-size:7px;font-weight:700;color:#92400e;font-family:monospace;">DATA BLOCK NOT YET AVAILABLE</div>
+    <div style="font-size:6.5px;color:#78350f;margin-top:2px;">Agent ${agentId} analysis will appear in the prose section below once complete.</div>
+  </div>`;
 }
 
 function renderSaaSAgentVisuals(agentId, db) {
   CUR = '$'; UNIT = 'M';
-  if (!db) return '';
+  if (!db) return renderSaaSFallback(agentId);
   let h = '';
-  h += renderSaaSKPIs(db.kpis);
+  // Synopsis: skip generic KPI tiles — the agentVerdicts grid is more informative
+  if (agentId !== 'synopsis') h += renderSaaSKPIs(db.kpis);
+  // Revenue: add a triangulation consensus row after KPI tiles
+  if (agentId === 'revenue' && db.arrTriangulation && db.arrTriangulation.length) {
+    const estimates = db.arrTriangulation.map(m => m.estimate).filter(Boolean);
+    if (estimates.length >= 2) {
+      h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:3px;margin-bottom:8px;">
+        <span style="font-size:7px;font-weight:700;color:${V.blue};font-family:monospace;letter-spacing:.06em;flex-shrink:0;">3-METHOD CONSENSUS</span>
+        <div style="display:flex;gap:8px;flex:1;">
+          ${db.arrTriangulation.map(m => `<span style="font-size:7px;color:${V.inkMid};">${m.method.split(' ')[0]}: <strong style="color:${V.navy};">${m.estimate}</strong> <span style="font-size:6px;color:${m.confidence==='H'?V.green:m.confidence==='M'?V.amber:V.red};">[${m.confidence}]</span></span>`).join('<span style="color:#ddd;">|</span>')}
+        </div>
+      </div>`;
+    }
+  }
   switch(agentId) {
     case 'market':      h += renderMarketSaaS(db); break;
     case 'product':     h += renderProductSaaS(db); break;
@@ -627,6 +665,8 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
       .replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '')
       .replace(/={10,}[\s\S]*?DATA BLOCK[\s\S]*?={10,}/g, '')
       .replace(/─{10,}[\s\S]*?DATA BLOCK[\s\S]*?─{10,}/g, '')
+      // Strip opening orientation sentences that agents sometimes output
+      .replace(/^[^\n]*(?:This (?:section|analysis|agent|report) (?:examines|covers|focuses|analyses|analyzes|looks at)|In this (?:analysis|section)|Agent \d+ (?:focuses|covers|examines))[^\n]*\n/gim, '')
       .trim()
       .replace(/\[HIGH CONFIDENCE[^\]]*\]/g, '<span style="background:#e8f5ee;color:#2d7a4f;font-size:7px;font-family:monospace;padding:2px 5px;border-radius:2px;font-weight:600;">● High</span>')
       .replace(/\[MEDIUM CONFIDENCE[^\]]*\]/g, '<span style="background:#fef3e2;color:#c97d20;font-size:7px;font-family:monospace;padding:2px 5px;border-radius:2px;font-weight:600;">● Medium</span>')
@@ -694,6 +734,49 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
   </div>
 </div>
 `
+  // Verdict Matrix page — built from verdictRow in each agent's DATA_BLOCK
+  const vColors = { STRONG:'#059669', WATCH:'#d97706', OPTIMISE:'#2563eb', UNDERDELIVERED:'#dc2626', RISK:'#dc2626' };
+  const vBg    = { STRONG:'#ecfdf5', WATCH:'#fffbeb', OPTIMISE:'#eff6ff', UNDERDELIVERED:'#fef2f2', RISK:'#fef2f2' };
+  const vLabel = { STRONG:'● STRONG', WATCH:'◐ WATCH', OPTIMISE:'◈ OPTIMISE', UNDERDELIVERED:'▲ UNDERDELIVERED', RISK:'▲ RISK' };
+  const matrixRows = agentPages.map(ag => {
+    const db = dataBlocks[ag.id];
+    if (!db || !db.verdictRow) return null;
+    const v = db.verdictRow;
+    const vc = vColors[v.verdict] || '#888';
+    const vb = vBg[v.verdict] || '#f8f8f8';
+    const vl = vLabel[v.verdict] || v.verdict;
+    return `<tr>
+      <td style="padding:7px 10px;font-weight:700;color:#0f1f3d;font-size:9px;border-bottom:1px solid #e2e8f0;">${ag.title}</td>
+      <td style="padding:7px 10px;text-align:center;border-bottom:1px solid #e2e8f0;">
+        <span style="background:${vb};color:${vc};font-size:7.5px;font-weight:800;padding:3px 8px;border-radius:3px;white-space:nowrap;letter-spacing:.04em;font-family:monospace;">${vl}</span>
+      </td>
+      <td style="padding:7px 10px;font-size:8.5px;color:#3a3a3a;line-height:1.5;border-bottom:1px solid #e2e8f0;">${v.finding || '—'}</td>
+      <td style="padding:7px 10px;text-align:center;font-family:monospace;font-size:7px;color:#999;border-bottom:1px solid #e2e8f0;">[${v.confidence || 'M'}]</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+
+  const verdictMatrixHtml = matrixRows ? `
+<div style="width:794px;min-height:1122px;position:relative;background:#fff;page-break-after:always;overflow:hidden;">
+  ${header('VERDICT MATRIX · ALL AGENTS')}
+  <div style="padding:24px 50px 0;">
+    <div style="font-family:'Playfair Display',serif;font-size:18px;color:#0f1f3d;font-weight:700;margin-bottom:2px;">Verdict Matrix</div>
+    <div style="height:2px;background:linear-gradient(90deg,#0f1f3d 0%,#2563eb 40%,transparent 100%);margin-bottom:6px;"></div>
+    <div style="font-size:8px;color:#888;font-style:italic;margin-bottom:16px;">One-line verdict per agent — green means proceed, amber means monitor, red means act now. Drill into any agent section for the full analysis.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:9px;">
+      <thead>
+        <tr style="background:#0f1f3d;color:#fff;">
+          <th style="padding:8px 10px;text-align:left;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:28%;">Agent</th>
+          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:14%;">Status</th>
+          <th style="padding:8px 10px;text-align:left;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Key Finding</th>
+          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:7%;">Conf.</th>
+        </tr>
+      </thead>
+      <tbody>${matrixRows}</tbody>
+    </table>
+  </div>
+  ${footer(3)}
+</div>` : '';
+
   // Agent pages
   const agentPageHtml = agentPages.map((ag, i) => `
     <div style="width:794px;min-height:1122px;position:relative;background:#fff;page-break-after:always;overflow:hidden;">
@@ -707,7 +790,7 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
         <div style="font-family:monospace;font-size:6px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#bbb;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e8ecf0;">Analysis & Strategic Implications</div>
         <div style="font-size:8.5px;line-height:1.85;color:#2a2a2a;">${formatProse(results[ag.id])}</div>
       </div>
-      ${footer(i + 3)}
+      ${footer(i + 5)}
     </div>`).join('');
 
   const synopsisHtml = `
@@ -722,8 +805,53 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
         <div style="font-family:monospace;font-size:6px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#bbb;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e8ecf0;">Strategic Synthesis</div>
         <div style="font-size:8.5px;line-height:1.85;color:#2a2a2a;">${formatProse(results.synopsis)}</div>
       </div>
-      ${footer(12)}
+      ${footer(13)}
     </div>`;
+
+  // 90-Day Action Plan page — built from topActions in synopsis DATA_BLOCK
+  const synopsisDB = dataBlocks['synopsis'];
+  const topActions = synopsisDB && synopsisDB.topActions ? synopsisDB.topActions : [];
+  const effortColors = { H: '#dc2626', M: '#d97706', L: '#059669' };
+  const actionPlanHtml = topActions.length ? `
+<div style="width:794px;min-height:1122px;position:relative;background:#fff;page-break-after:always;overflow:hidden;">
+  ${header('90-DAY ACTION PLAN')}
+  <div style="padding:24px 50px 0;">
+    <div style="font-family:'Playfair Display',serif;font-size:18px;color:${V.navy};font-weight:700;margin-bottom:2px;">90-Day Action Plan</div>
+    <div style="height:2px;background:linear-gradient(90deg,${V.navy} 0%,${V.blue} 40%,transparent 100%);margin-bottom:6px;"></div>
+    <div style="font-size:8px;color:#888;font-style:italic;margin-bottom:16px;">Top actions sequenced by impact × speed. Each action is specific enough to assign on Monday morning.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:8.5px;">
+      <thead>
+        <tr style="background:${V.navy};color:#fff;">
+          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:4%;">#</th>
+          <th style="padding:8px 10px;text-align:left;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:38%;">Action</th>
+          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:14%;">Owner</th>
+          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:10%;">By</th>
+          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:12%;">Impact</th>
+          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:8%;">Effort</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${topActions.map((a, i) => {
+          const ec = effortColors[a.effort] || '#888';
+          const rowBg = i % 2 === 0 ? '#fff' : '#f0f4ff';
+          return `<tr>
+            <td style="padding:8px 10px;background:${rowBg};border-bottom:1px solid #e2e8f0;text-align:center;font-weight:800;color:${V.blue};font-size:11px;">${a.rank}</td>
+            <td style="padding:8px 10px;background:${rowBg};border-bottom:1px solid #e2e8f0;font-size:8px;color:${V.ink};line-height:1.5;">${a.action}</td>
+            <td style="padding:8px 10px;background:${rowBg};border-bottom:1px solid #e2e8f0;text-align:center;font-size:7.5px;color:${V.inkMid};">${a.owner || '—'}</td>
+            <td style="padding:8px 10px;background:${rowBg};border-bottom:1px solid #e2e8f0;text-align:center;font-size:7.5px;font-weight:700;color:${V.navy};">${a.quarter || '—'}</td>
+            <td style="padding:8px 10px;background:${rowBg};border-bottom:1px solid #e2e8f0;text-align:center;font-size:8px;font-weight:700;color:${V.blue};">${a.impactM ? '$' + a.impactM + 'M' : '—'}</td>
+            <td style="padding:8px 10px;background:${rowBg};border-bottom:1px solid #e2e8f0;text-align:center;"><span style="background:${ec}18;color:${ec};font-size:7px;font-weight:800;padding:2px 7px;border-radius:3px;font-family:monospace;">${a.effort || '—'}</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:20px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;">
+      <div style="font-family:monospace;font-size:6.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${V.blue};margin-bottom:6px;">How to use this plan</div>
+      <div style="font-size:7.5px;color:${V.inkMid};line-height:1.6;">Actions are sequenced by impact magnitude × speed to result. Effort ratings: <strong style="color:#dc2626;">H</strong> = significant resource commitment, <strong style="color:#d97706;">M</strong> = moderate, <strong style="color:#059669;">L</strong> = quick win. Start with low-effort, high-impact actions. For full reasoning behind each action, see the relevant agent section.</div>
+    </div>
+  </div>
+  ${footer(14)}
+</div>` : '';
 
   const sourcesHtml = `
     <div style="width:794px;min-height:1122px;position:relative;background:#fff;page-break-after:always;overflow:hidden;">
@@ -765,26 +893,36 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
       </div>
       ${footer(2)}
     </div>`;
-
-  return `<!DOCTYPE html><html><head>
     <meta charset="UTF-8"/>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Instrument+Sans:wght@400;600;700&family=DM+Sans:wght@400;700;800&display=swap" rel="stylesheet"/>
     <style>
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-      body{font-family:'Instrument Sans',sans-serif;background:#e2e8f0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-      @media print{@page{margin:0;size:A4 portrait;}body{background:#fff;}}
+      body{font-family:'Instrument Sans',sans-serif;background:#e2e8f0;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}
+      @media print{
+        @page{margin:0;size:A4 portrait;}
+        body{background:#fff;}
+        /* Force background colours and images to print — Puppeteer respects these */
+        *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
+        div[style*="background:#0f1f3d"]{background:#0f1f3d !important;}
+        div[style*="background:#2563eb"]{background:#2563eb !important;}
+      }
       em{font-style:italic;}
       table{width:100%;border-collapse:collapse;margin:8px 0;font-size:7.5px;}
       thead tr{background:#0f1f3d !important;color:#fff !important;}
-      thead th{padding:6px 8px;text-align:left;font-weight:700;letter-spacing:.04em;border:1px solid #0f1f3d;color:#fff !important;font-size:7px;}
+      thead th{padding:6px 8px;text-align:left;font-weight:700;letter-spacing:.04em;border:1px solid #0f1f3d;color:#fff !important;font-size:7px;background:#0f1f3d !important;}
       tbody tr:nth-child(even){background:#f0f4ff !important;}
       tbody tr:nth-child(odd){background:#fff !important;}
       tbody td{padding:5px 8px;border:1px solid #dbeafe;color:#1a1a2e;vertical-align:top;font-size:7px;}
+      /* Ensure gradient bars and status badges render in PDF */
+      div[style*="linear-gradient"]{background:inherit;}
+      span[style*="background:#059669"],span[style*="background:#d97706"],span[style*="background:#dc2626"]{-webkit-print-color-adjust:exact !important;}
     </style>
   </head><body>
     ${coverHtml}
     ${sourcesHtml}
+    ${verdictMatrixHtml}
     ${synopsisHtml}
+    ${actionPlanHtml}
     ${agentPageHtml}
   </body></html>`;
 }
@@ -872,7 +1010,7 @@ export default function AdvisorSprintIntelligence() {
               if (event.type === 'source' && event.url) {
                 setSources(prev => {
                   if (prev.find(s => s.url === event.url)) return prev;
-                  return [...prev, { url: event.url, title: event.title, agent: event.agent }].slice(0,100);
+                  return [...prev, { url: event.url, title: event.title, agent: event.agent }];
                 });
               }
               if (event.type === 'error') {
@@ -916,7 +1054,26 @@ export default function AdvisorSprintIntelligence() {
             setDataBlocks(d => ({ ...d, [id]: parsed }));
           } catch(e) {
             console.warn('[DataBlock] parse failed:', id, e.message);
-            setDataBlocks(d => ({ ...d, [id]: { agent: id, kpis: [{ label: 'Analysis', value: '✓', sub: 'See prose below', trend: 'flat', confidence: 'M' }], verdictRow: { verdict: 'WATCH', finding: 'DATA_BLOCK parse failed — see full analysis below', confidence: 'L' } } }));
+            // Attempt graceful recovery: try to extract verdictRow via regex even if full JSON is malformed
+            let recoveredBlock = { agent: id, kpis: [{ label: 'Analysis', value: '✓', sub: 'Full analysis in prose below', trend: 'flat', confidence: 'M' }], verdictRow: null };
+            try {
+              const rawForRecovery = (dbMatch[1] || dbMatch[2] || '').trim();
+              const vMatch = rawForRecovery.match(/"verdictRow"\s*:\s*\{[^}]+\}/);
+              if (vMatch) {
+                const vParsed = JSON.parse('{' + vMatch[0] + '}');
+                recoveredBlock.verdictRow = vParsed.verdictRow;
+              }
+              // Try to extract kpis array
+              const kMatch = rawForRecovery.match(/"kpis"\s*:\s*(\[[^\]]+\])/);
+              if (kMatch) {
+                const kParsed = JSON.parse(kMatch[1]);
+                recoveredBlock.kpis = kParsed;
+              }
+            } catch(recovErr) { /* recovery also failed — use defaults */ }
+            if (!recoveredBlock.verdictRow) {
+              recoveredBlock.verdictRow = { verdict: 'WATCH', finding: 'Analysis complete — see prose below for full findings', confidence: 'L' };
+            }
+            setDataBlocks(d => ({ ...d, [id]: recoveredBlock }));
           }
         }
         setResults(r => ({ ...r, [id]: cleanText }));
@@ -975,7 +1132,13 @@ export default function AdvisorSprintIntelligence() {
         if (id === 'synopsis') {
           const trimmed = {};
           Object.entries(w1texts).forEach(([k,v]) => {
-            trimmed[k] = typeof v === 'string' ? v.slice(0,2500) + (v.length > 2500 ? ' [...truncated...]' : '') : v;
+            if (typeof v !== 'string') { trimmed[k] = v; return; }
+            // Pass DATA_BLOCK in full (compact, information-dense) + first 3000 chars of prose
+            const dbMatch = v.match(/<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+            const dataBlock = dbMatch ? '<<<DATA_BLOCK>>>' + dbMatch[1] + '<<<END_DATA_BLOCK>>>' : '';
+            const prose = v.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '').trim();
+            const proseSlice = prose.slice(0, 3000) + (prose.length > 3000 ? ' [...truncated...]' : '');
+            trimmed[k] = dataBlock + '\n\n' + proseSlice;
           });
           ctx_for_agent = trimmed;
         } else if (W2.includes(id)) {
