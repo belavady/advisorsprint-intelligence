@@ -893,6 +893,8 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
       </div>
       ${footer(2)}
     </div>`;
+
+  return `<!DOCTYPE html><html><head>
     <meta charset="UTF-8"/>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Instrument+Sans:wght@400;600;700&family=DM+Sans:wght@400;700;800&display=swap" rel="stylesheet"/>
     <style>
