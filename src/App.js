@@ -831,7 +831,7 @@ function renderSaaSAgentVisuals(agentId, db) {
 
 
 // ── SAAS OPPORTUNITY BRIEF HTML BUILDER ──────────────────────────────────────
-function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks }) {
+function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks, companyMode='standalone' }) {
   const db = dataBlocks['brief'] || {};
   const raw = results['brief'] || '';
 
@@ -844,6 +844,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   const revenueGaps   = Array.isArray(db.revenueGaps)      ? db.revenueGaps      : [];
   const marketSignals    = Array.isArray(db.marketSignals)      ? db.marketSignals      : [];
   const arrivalSequence  = Array.isArray(db.arrivalSequence)    ? db.arrivalSequence    : [];
+  const competitiveEdge  = Array.isArray(db.competitiveEdge)    ? db.competitiveEdge    : [];
   const moves         = Array.isArray(db.moves)            ? db.moves            : [];
   const competitors   = Array.isArray(db.competitorThreats)? db.competitorThreats: [];
   const globalComps   = Array.isArray(db.globalComps)      ? db.globalComps      : [];
@@ -1240,7 +1241,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   ${competitiveEdge.length ? `
   <div style="margin-bottom:10px;">
     <div style="margin-bottom:6px;">
-      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">${acquisitionMode ? 'ACQUIRER EDGE NOT DEPLOYED' : 'STRUCTURAL ADVANTAGE'}</div>
+      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">${companyMode === 'acquired' ? 'ACQUIRER EDGE NOT DEPLOYED' : 'STRUCTURAL ADVANTAGE'}</div>
       ${sectionHdrs.competitiveEdge ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.competitiveEdge}</div>` : ''}
     </div>
     ${renderCompetitiveEdge(competitiveEdge)}
@@ -1933,7 +1934,7 @@ export default function AdvisorSprintIntelligence() {
     if (briefGenerating) return;
     setBriefGenerating(true);
     try {
-      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks });
+      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
