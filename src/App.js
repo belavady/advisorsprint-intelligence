@@ -765,24 +765,7 @@ function renderSynopsisSaaS(db) {
     }
     h += '</div>';
   }
-  // Board-Level Questions
-  if (db.boardQuestions && db.boardQuestions.length) {
-    h += sectionLabel('Three Questions the Board Must Answer');
-    const answerColors = { 'primary research': V.blue, 'founder conversation': V.purple, 'market test': V.green, 'regulatory clarity': V.amber };
-    db.boardQuestions.forEach((q, i) => {
-      const ac = answerColors[q.answerableBy] || V.inkMid;
-      h += `<div style="margin-bottom:6px;padding:7px 10px;background:${V.parchment};border:1px solid ${V.sand};border-left:3px solid ${V.navy};border-radius:2px;">
-        <div style="display:flex;align-items:flex-start;gap:8px;">
-          <span style="font-size:9px;font-weight:800;color:${V.navy};flex-shrink:0;min-width:14px;">${i+1}.</span>
-          <div style="flex:1;">
-            <div style="font-size:7.5px;font-weight:700;color:${V.navy};margin-bottom:3px;">${q.question}</div>
-            <div style="font-size:6.5px;color:${V.inkMid};margin-bottom:3px;">${q.whyItMatters}</div>
-            <span style="font-size:6px;font-family:monospace;background:${ac}18;color:${ac};padding:2px 6px;border-radius:8px;font-weight:700;">${q.answerableBy}</span>
-          </div>
-        </div>
-      </div>`;
-    });
-  }
+
   return h;
 }
 
@@ -1921,6 +1904,9 @@ export default function AdvisorSprintIntelligence() {
       if (!signal.aborted) {
         setAppState("done");
         try { sessionStorage.removeItem(`sprint_${company.trim()}`); } catch(e) {}
+        // Auto-generate the opportunity brief PDF immediately after sprint completes
+        // Small delay to let React state settle so dataBlocks['brief'] is available
+        setTimeout(() => { generateSaaSBriefAuto(company, acquirer, sector, stage); }, 800);
       }
     } catch(e) {
       console.error("Sprint error:", e);
@@ -1969,6 +1955,38 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
     if (abortRef.current) abortRef.current.abort();
     if (timerRef.current) clearInterval(timerRef.current);
     setAppState("idle");
+  };
+
+  const generateSaaSBriefAuto = async (co, acq, sec, stg) => {
+    // Called automatically at sprint end — uses passed values not stale closure state
+    setBriefGenerating(true);
+    try {
+      // dataBlocks is from React state via setDataBlocks — read it via a ref snapshot
+      // We call buildSaaSBriefHtml with the current DOM state
+      const html = buildSaaSBriefHtml({ company: co, acquirer: acq, sector: sec, stage: stg, results, dataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
+      const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html, company: co, acquirer: acq }),
+        signal: AbortSignal.timeout(120000),
+      });
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({ error: 'Brief generation failed' }));
+        throw new Error(err.error || `Server error ${pdfRes.status}`);
+      }
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${co.replace(/\s+/g,'-')}_OpportunityBrief_${new Date().toISOString().slice(0,10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      console.warn('Auto brief generation failed:', e.message);
+      // Non-fatal — user can still click the button manually
+    } finally {
+      setBriefGenerating(false);
+    }
   };
 
   const generateSaaSBrief = async () => {
