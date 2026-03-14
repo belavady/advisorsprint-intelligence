@@ -35,6 +35,7 @@ const SAAS_AGENTS = [
   { id: "pricing",     wave: 2, icon: "◉", label: "Pricing Power & Revenue Model",      sub: "Model stress-test, pricing power, enterprise gap" },
   { id: "intl",        wave: 2, icon: "◎", label: "International Expansion & Benchmarks", sub: "Global comps, expansion markets, regulatory barriers" },
   { id: "synopsis",    wave: 3, icon: "◉", label: "Executive Synopsis",                 sub: "Strategic synthesis — Opus 4" },
+  { id: "brief",       wave: 4, icon: "◈", label: "Opportunity Brief",                   sub: "2-page visual brief for founders & VCs" },
 ];
 
 const W1 = SAAS_AGENTS.filter(a => a.wave === 1).map(a => a.id);
@@ -59,6 +60,195 @@ const V = {
   forest:     '#0f1f3d',
   terra:      '#2563eb',
 };
+
+
+// ── SAAS OPPORTUNITY BRIEF PROMPT ─────────────────────────────────────────
+const SAAS_BRIEF_PROMPT = `# AGENT 11: SAAS OPPORTUNITY BRIEF
+
+You are the most senior strategic analyst on this engagement. You have read every agent output and the full synopsis. Your job is one thing: produce a 2-page visual brief that makes a founder or VC want to read the full report.
+
+This brief is a door-opener, not a summary. A founder stops reading when they see their strategic tension named precisely. A VC stops when they see a comp that reframes the trajectory. Every word must earn its place.
+
+## YOUR SYNTHESIS APPROACH
+
+Read every agent output systematically before writing anything:
+- Agent 1 (Market): category timing, TAM, structural forces → MARKET SIGNAL TABLE (home market signals only)
+- Agent 2 (Product): moat components, disintermediation risk → STRATEGIC TENSION
+- Agent 3 (GTM): motion efficiency, PLG/enterprise balance → REVENUE GAP TABLE + MOVES
+- Agent 4 (Revenue): ARR health, Rule of 40, unit economics → KPI STRIP (derived metrics only)
+- Agent 5 (Customer): ICP coverage, segment health, churn → SEGMENT COVERAGE MAP
+- Agent 6 (Competitive): TWO things — (a) moat threats → COMPETITIVE THREAT TIMELINE; (b) what home-market competitors/challengers are doing differently that proves a motion or segment this company hasn't addressed → MARKET SIGNALS TABLE
+- Agent 7 (Funding): (a) valuation context, exit scenarios → KPI STRIP + VERDICT; (b) acquirer/investor assets not yet activated for this product → COMPETITIVE EDGE section
+- Agent 8 (Pricing): pricing power, model stress → REVENUE GAP TABLE
+- Agent 9 (International): global comps, expansion signals → GLOBAL COMP SIGNAL (Page 2) + ARRIVAL SEQUENCE (Page 2)
+
+PAGE 1 IS HOME MARKET ONLY. Every data point on Page 1 describes what is happening in this company's home market — segment gaps, revenue gaps, what home market competitors are doing, structural edge. No international comps or arrival signals on Page 1.
+
+PAGE 2 IS INTERNATIONAL + ACTION. Page 2 shows: what this company must do (Strategic Tension + Radar + 3 Moves), then global category context, then what is arriving internationally and when, then the global comp pattern match, then competitors, then verdict.
+
+CRITICAL — ONE JOB PER SURFACE:
+- marketSignals (Page 1): home market players proving a motion/segment this company hasn't addressed — specific companies, commercial evidence, implication
+- competitiveEdge (Page 1): acquirer/investor assets not yet applied to this product, OR standalone structural advantages. NEVER suggest distribution or enterprise relationship assets without cited evidence — assume they are already activated.
+- arrivalSequence (Page 2): international category shifts arriving in this market — when, how, what company must do before inflection
+- globalComps (Page 2): reference companies 12-24 months ahead — pattern match for founder/VC
+- page1Summary: home market position + structural constraint only. No international content.
+
+## THREE PLAY TYPES — CLASSIFY EVERY GAP AND MOVE
+
+**SCALE**
+Extend the existing motion using existing distribution/product. Win by executing faster and deeper on what already works. No new capability required.
+Badge: Navy.
+
+**TRANSFORM**
+Requires a fundamentally different motion — PLG to enterprise, single-product to platform, usage-based to seat-based. Company must build a capability it does not currently have. High risk, high ceiling.
+Badge: Purple.
+
+**DEFEND**
+A specific competitor or category shift is actively eroding a position. Move is about protecting before expanding. Speed matters more than size here.
+Badge: Red.
+
+## THE STRATEGIC TENSION — MOST IMPORTANT OUTPUT
+
+The Strategic Tension is the single most valuable sentence in the brief. It names the specific contradiction the company is navigating — the thing the founder knows is true but has not seen written precisely. It sits at the top of Page 2 and frames everything that follows.
+
+Format: "[Signal A] while [Signal B] — this means [implication for next 18 months]."
+Example: "PLG motion driving 70% of new ARR while enterprise ACV is 4x higher — the company is optimising for acquisition velocity at the cost of revenue quality, and the window to correct this closes when the first enterprise competitor enters the ICP."
+
+Bad tension: "The company has strong growth but faces competitive pressure." (Generic — any company.)
+Good tension: Names the specific metric, the specific contradiction, the specific 18-month consequence.
+
+## GLOBAL COMP SIGNAL — VC HOOK
+
+Pick 4-5 companies that are 12-24 months ahead of this company on a comparable trajectory in a reference market (US, EU, Israel, SEA). For each: company name, what stage they were at when they faced the same dynamic, what happened, what it predicts for this company. This is how VCs think — pattern matching to known trajectories.
+
+## DATA BLOCK — WRITE FIRST
+
+<<<DATA_BLOCK>>>
+{
+  "agent": "brief",
+  "kpis": [
+    "MANDATORY: 4 DERIVED metrics that require calculation — not descriptive labels the founder already knows.",
+    "BAD: ARR $12M — the founder knows this. GOOD: 'Revenue per ICP Account' = ARR divided by ICP count showing monetisation efficiency; 'Expansion Gap' = NRR minus 100% × ARR showing revenue being left in existing base; 'CAC Payback Delta' = months to payback vs category benchmark; 'Competitive Velocity' = rate at which named competitor is closing feature/distribution gap.",
+    "Each KPI must make the founder or VC think: I had not computed that.",
+    "Format: {label: short label, value: the computed number with unit, sub: what was calculated and from what, trend: up|down|flat|watch, confidence: H|M|L}"
+  ],
+  "strategicTension": "One precise sentence naming the specific contradiction — [signal A] while [signal B] — this means [implication]. Max 160 chars.",
+  "radarAxes": [
+    {"axis": "Market Timing", "today": 0, "future": 0},
+    {"axis": "Product Moat", "today": 0, "future": 0},
+    {"axis": "Revenue Quality", "today": 0, "future": 0},
+    {"axis": "GTM Efficiency", "today": 0, "future": 0},
+    {"axis": "Competitive Position", "today": 0, "future": 0},
+    {"axis": "Capital Efficiency", "today": 0, "future": 0}
+  ],
+  "segmentMap": [
+    {
+      "segment": "Segment name",
+      "sizeMr": 0,
+      "status": "owned|partial|at_risk",
+      "growth": "high|medium|low",
+      "threat": "Competitor colonising this segment or blank if owned"
+    }
+  ],
+  "revenueGaps": [
+    {
+      "gap": "gap description",
+      "arrGapM": 0,
+      "currentMotion": "PLG|Enterprise|Channel|Usage",
+      "playType": "SCALE|TRANSFORM|DEFEND",
+      "mechanism": "how to close — specific motion or action",
+      "confidence": "H|M|L"
+    }
+  ],
+  "marketSignals": [
+    {
+      "signal": "signal name (max 20 chars)",
+      "evidence": "one evidence line (max 45 chars)",
+      "momentum": "accelerating|building|mainstream|emerging|declining",
+      "months18": "accelerating|building|mainstream|emerging|declining",
+      "sourceMarket": "US|EU|IL|SEA|IN",
+      "headroomPct": 0,
+      "playType": "SCALE|TRANSFORM|DEFEND"
+    }
+  ],
+  "moves": [
+    {
+      "title": "4 words max — name the motion or segment, not the framework",
+      "segment": "segment or motion targeted",
+      "arrImpactM": 0,
+      "playType": "SCALE|TRANSFORM|DEFEND",
+      "mechanism": "specific motion — how this company reaches scale",
+      "orgInstruction": "what must change organisationally — build, hire, restructure, ring-fence",
+      "confidence": "CONFIRMED|DERIVED|ESTIMATED|SIGNAL ONLY",
+      "timeToRevenue": "Q1 26",
+      "filters": ["A", "B"],
+      "rationale": "one sentence max 120 chars",
+      "evidence": "one evidence line with source max 80 chars"
+    }
+  ],
+  "competitorThreats": [
+    {
+      "name": "competitor name",
+      "arrEst": "$XM",
+      "targeting": "which segment or motion they are colonising",
+      "threatBy": "Q3 2026",
+      "confidence": "H|M|L"
+    }
+  ],
+  "arrivalSequence": [
+    {
+      "market": "US|EU|IL|SEA|IN",
+      "format": "the specific product motion, category shift, or competitive format arriving in this company's home market (max 30 chars) — not a company name, a structural shift",
+      "inflection": "Q3 2026 — when this reaches critical mass in the home market, not when it is mainstream in the reference market",
+      "entryMechanism": "HOW it physically arrives — which acquirer/distribution deal/product launch/enterprise relationship is the vehicle (max 55 chars)",
+      "companyResponse": "what THIS company must do specifically before that inflection point — one action (max 50 chars)",
+      "confidence": "H|M|L"
+    }
+  ],
+  "globalComps": [
+    {
+      "market": "US|EU|IL|SEA",
+      "company": "comp company name",
+      "stage": "what stage they were at when facing same dynamic",
+      "whatHappened": "one line — outcome (max 60 chars)",
+      "prediction": "one line — what this predicts for [COMPANY] (max 60 chars)"
+    }
+  ],
+  "page1Summary": "Exactly 2 sentences. S1: the single most important gap in segment coverage or revenue motion right now — which segment is at risk, how large, who is moving in, and what structural right to win this company has that a new entrant cannot replicate. S2: the single competitive or structural constraint that makes this gap urgent NOW — what organisational or capability fact means the window closes if the company does not move in 18 months. DO NOT mention international comps — those are on Page 2. Home market position only. Max 280 chars total. Do not start with company name.",
+  "boldStatement": "One sentence. Max 140 chars. Names the specific segment or motion window, the competitor who will own it if this company does not move, and the timeframe. Urgency without using the word urgency.",
+  "categoryRead": {
+    "globalTrend": "One sentence: where this category is structurally heading — consolidating, bifurcating, commoditising, platformising. No company names. Max 120 chars.",
+    "leadMarket": "US|EU|IL|SEA — the single market where this structural shift is most advanced",
+    "homeMarketLag": "e.g. 'EU 18 months behind US on enterprise motion' or 'IN 2-3 years behind US on PLG-to-enterprise transition'",
+    "implication": "One sentence: what the structural shift means for this company's window — opening, closing, or already closing. No company names. Max 120 chars."
+  },
+  "sectionHeaders": {
+    "segmentMap": "8 words max — what the segment coverage reveals about this company specifically",
+    "revenueGaps": "8 words max — the single most important gap pattern",
+    "marketSignals": "8 words max — what home market players are proving that this company hasn't done yet",
+    "competitiveEdge": "8 words max — what the structural or institutional edge is e.g. 'Acquirer enterprise network untapped for this product.'",
+    "radarGap": "8 words max — what the transformation requires"
+  }
+}
+<<<END_DATA_BLOCK>>>
+
+## FIELD INSTRUCTIONS — READ BEFORE WRITING DATA BLOCK
+
+**marketSignals**: HOME MARKET ONLY. For each row: name a specific company operating in this company's home market (competitor, challenger, adjacent player) who is doing something in this product category that this company is NOT doing. The company must be real and operating in the home market. The action must be specific and concrete. The evidence must be commercial (ARR, customers, funding, distribution). The implication must tell the founder what to do specifically. Maximum 5 rows. No international players here.
+
+**competitiveEdge**: CONDITIONAL. If acquired or has a strategic investor: pull from Agent 7 the specific assets of the acquirer/investor that are NOT yet activated for this product. CRITICAL EXCLUSION — do NOT include enterprise relationships, distribution channels, or customer network assets unless Agent 7 has specific cited evidence they are not already being used. A company with a strategic investor will already be leveraging obvious relationship assets. Focus ONLY on: technology or IP not yet applied to this product, data assets not yet leveraged, manufacturing or infrastructure capability, regulatory or certification advantage, proprietary research. If standalone: what this company can do faster than any incumbent — speed, community, format experimentation, founder credibility, capital-light iteration. Maximum 3 assets.
+
+**arrivalSequence**: PAGE 2 ONLY. For each row: a specific category shift, competitive format, or structural change that is mainstream in a reference market and arriving in this company's home market. HOW it physically arrives — which acquirer/partnership/product launch is the vehicle. WHAT the company must do before the inflection point. Maximum 5 rows. No home market data here.
+
+**page1Summary**: Home market position + structural constraint only. DO NOT mention international comps — those are on Page 2. S1: most important segment or motion gap, how large, who is moving in, what structural right-to-win this company has. S2: the specific capability or organisational constraint that makes this urgent NOW.
+
+## AFTER THE DATA BLOCK
+
+Write exactly this and nothing else:
+
+**BOLD STATEMENT:**
+[Your one sentence here]
+`;
 
 // ── SAAS MAKE PROMPT ────────────────────────────────────────────────────────
 function makeSaaSPrompt(id, company, acquirer, ctx, synthCtx) {
@@ -95,10 +285,12 @@ function makeSaaSPrompt(id, company, acquirer, ctx, synthCtx) {
     let priorContext = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPRIOR AGENT OUTPUTS (FOR SYNTHESIS)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     Object.entries(synthCtx).forEach(([agentId, result]) => {
       const agentName = agentNames[agentId] || agentId.toUpperCase();
+      const dbMatch2 = typeof result === 'string' ? result.match(/<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/) : null;
+      const dataBlock2 = dbMatch2 ? '<<<DATA_BLOCK>>>' + dbMatch2[1] + '<<<END_DATA_BLOCK>>>' : '';
       const withoutBlock = typeof result === 'string'
         ? result.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '').trim()
         : '';
-      const trimmed = withoutBlock.slice(0, 2500) + (withoutBlock.length > 2500 ? ' [...truncated for synthesis...]' : '');
+      const trimmed = dataBlock2 + '\n\n' + withoutBlock.slice(0, 2500) + (withoutBlock.length > 2500 ? ' [...truncated for synthesis...]' : '');
       priorContext += `## ${agentName}\n${trimmed}\n\n`;
     });
     prompt += priorContext;
@@ -637,6 +829,562 @@ function renderSaaSAgentVisuals(agentId, db) {
 }
 
 
+
+// ── SAAS OPPORTUNITY BRIEF HTML BUILDER ──────────────────────────────────────
+function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks }) {
+  const db = dataBlocks['brief'] || {};
+  const raw = results['brief'] || '';
+
+  const boldMatch = raw.match(/BOLD STATEMENT[:\s]*\n([^\n]+)/i);
+  const boldStatement = boldMatch ? boldMatch[1].trim().replace(/^\*+|\*+$/g,'') : (db.boldStatement || '');
+
+  const kpis          = Array.isArray(db.kpis)             ? db.kpis             : [];
+  const radarAxes     = Array.isArray(db.radarAxes)        ? db.radarAxes        : [];
+  const segmentMap    = Array.isArray(db.segmentMap)       ? db.segmentMap       : [];
+  const revenueGaps   = Array.isArray(db.revenueGaps)      ? db.revenueGaps      : [];
+  const marketSignals    = Array.isArray(db.marketSignals)      ? db.marketSignals      : [];
+  const arrivalSequence  = Array.isArray(db.arrivalSequence)    ? db.arrivalSequence    : [];
+  const moves         = Array.isArray(db.moves)            ? db.moves            : [];
+  const competitors   = Array.isArray(db.competitorThreats)? db.competitorThreats: [];
+  const globalComps   = Array.isArray(db.globalComps)      ? db.globalComps      : [];
+  const categoryRead  = db.categoryRead || null;
+  const sectionHdrs   = db.sectionHeaders || {};
+  const tension       = db.strategicTension || '';
+
+  const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+  const subtitleLine = [sector, stage, acquirer ? `Acquirer: ${acquirer}` : null].filter(Boolean).join(' · ');
+
+  // ── COLOUR PALETTE (navy/blue for SaaS) ─────────────────────────────
+  const C = {
+    navy:    '#0f1f3d', navyMid: '#1e3a5f',
+    blue:    '#2563eb', blueMid: '#3b82f6', blueLight: '#dbeafe',
+    purple:  '#7c3aed', purpleLight: '#ede9fe',
+    green:   '#059669', amber: '#d97706', red: '#dc2626',
+    ink:     '#1a1a2e', inkMid: '#4a5568', inkFaint: '#9aa5b4',
+    sand:    '#e2e8f0', parchment: '#f8fafc', white: '#ffffff',
+  };
+
+  // Play type config
+  const playConfig = {
+    SCALE:     { colour: C.navy,   icon: '⚡', label: 'SCALE',     sub: 'Extend existing motion' },
+    TRANSFORM: { colour: C.purple, icon: '◈', label: 'TRANSFORM', sub: 'New capability required' },
+    DEFEND:    { colour: C.red,    icon: '◇', label: 'DEFEND',    sub: 'Protect before expanding' },
+  };
+  const playShort = { SCALE:'SCL', TRANSFORM:'TRF', DEFEND:'DEF' };
+
+  const pageStyle = `width:794px;min-height:1123px;background:#fff;padding:36px;box-sizing:border-box;position:relative;font-family:'Instrument Sans',sans-serif;color:${C.ink};`;
+
+  // ── KPI STRIP ─────────────────────────────────────────────────────────
+  function renderKPIs(kpis) {
+    if (!kpis.length) return '';
+    const confCol = k => k.confidence==='H'?C.green:k.confidence==='M'?C.amber:C.red;
+    const trendArrow = t => ({up:`<span style="color:${C.green};font-size:9px;">↑</span>`,down:`<span style="color:${C.red};font-size:9px;">↓</span>`,watch:`<span style="color:${C.amber};font-size:9px;">⚠</span>`})[t]||'';
+    let h = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">`;
+    kpis.slice(0,4).forEach(k => {
+      h += `<div style="background:${C.parchment};border:1px solid ${C.sand};border-left:3px solid ${confCol(k)};border-radius:3px;padding:8px 10px;">
+        <div style="font-size:6.5px;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;color:${C.inkFaint};margin-bottom:3px;">${k.label||''}</div>
+        <div style="font-size:16px;font-weight:800;color:${C.navy};line-height:1;">${k.value||'—'}${trendArrow(k.trend)}</div>
+        <div style="font-size:6.5px;color:${C.inkMid};margin-top:2px;white-space:normal;">${k.sub||''}</div>
+        <span style="background:${confCol(k)};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;margin-top:4px;display:inline-block;">${k.confidence||'M'}</span>
+      </div>`;
+    });
+    h += '</div>';
+    return h;
+  }
+
+  // ── COMPETITIVE EDGE ─────────────────────────────────────────────────────
+  // ── ARRIVAL SEQUENCE TABLE ─────────────────────────────────────────────
+  function renderArrivalSequence(seq) {
+    if (!seq.length) return '';
+    const mktCol = { US:'#1a3a5c', EU:'#1e3a5f', IL:'#7c3aed', SEA:'#059669', IN:'#d97706' };
+    const confCol = { H: C.navy, M: C.amber, L: '#bbb' };
+    let h = `<table style="width:100%;border-collapse:collapse;font-size:7px;">
+      <thead><tr style="background:${C.navy};color:#fff;">
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;width:35px;font-family:monospace;">MKT</th>
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;width:120px;font-family:monospace;">SHIFT ARRIVING</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;width:65px;font-family:monospace;">BY</th>
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">HOW IT ENTERS</th>
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">COMPANY MUST DO</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;width:35px;font-family:monospace;">CONF</th>
+      </tr></thead><tbody>`;
+    seq.slice(0,5).forEach((s, i) => {
+      const bg = i%2===0?'#fff':C.parchment;
+      const mc = mktCol[s.market] || C.navy;
+      const cc = confCol[s.confidence] || C.amber;
+      h += `<tr>
+        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${mc};color:#fff;font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${s.market||'?'}</span></td>
+        <td style="padding:5px 8px;background:${bg};font-weight:700;color:${C.navy};white-space:normal;font-size:7px;">${s.format||''}</td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;font-weight:700;color:${C.red};font-size:7px;">${s.inflection||'—'}</td>
+        <td style="padding:5px 8px;background:${bg};color:${C.inkMid};font-size:6.5px;white-space:normal;">${s.entryMechanism||''}</td>
+        <td style="padding:5px 8px;background:${bg};color:${C.navy};font-size:6.5px;font-weight:600;font-style:italic;white-space:normal;">${s.companyResponse||''}</td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;">${s.confidence||'M'}</span></td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  function renderCompetitiveEdge(assets) {
+    if (!assets.length) return '';
+    const statusCol = { untapped: C.red, partial: C.amber };
+    return `<div style="display:grid;grid-template-columns:repeat(${Math.min(assets.length,3)},1fr);gap:8px;">` +
+      assets.slice(0,3).map(a => {
+        const sc = statusCol[a.status] || C.amber;
+        return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${sc};">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
+            <span style="background:${sc}22;color:${sc};font-size:6px;font-weight:800;padding:1px 5px;border-radius:2px;text-transform:uppercase;font-family:monospace;">${a.status||''}</span>
+          </div>
+          <div style="font-size:8px;font-weight:800;color:${C.navy};margin-bottom:3px;white-space:normal;">${a.asset||''}</div>
+          <div style="font-size:7px;color:${C.inkMid};line-height:1.3;margin-bottom:4px;white-space:normal;">${a.whatItUnlocks||''}</div>
+          <div style="font-size:6.5px;color:${C.blue};font-weight:600;border-top:1px solid ${C.sand};padding-top:4px;white-space:normal;font-family:monospace;">→ ${a.activationPath||''}</div>
+        </div>`;
+      }).join('') + '</div>';
+  }
+
+  // ── SEGMENT COVERAGE MAP (replaces occasion wheel — table format) ──────
+  function renderSegmentMap(segs) {
+    if (!segs.length) return '';
+    const statusCol = { owned: C.green, partial: C.amber, at_risk: C.red };
+    const statusLabel = { owned: 'OWNED', partial: 'PARTIAL', at_risk: 'AT RISK' };
+    let h = `<table style="width:100%;border-collapse:collapse;font-size:7.5px;">
+      <thead><tr>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">SEGMENT</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:right;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">$M TAM</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">STATUS</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">THREAT / OWNER</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">GROWTH</th>
+      </tr></thead><tbody>`;
+    segs.forEach((s, i) => {
+      const bg = i % 2 === 0 ? '#fff' : C.parchment;
+      const sc = statusCol[s.status] || C.inkMid;
+      const sl = statusLabel[s.status] || s.status;
+      const gc = s.growth === 'high' ? C.green : s.growth === 'medium' ? C.amber : C.inkFaint;
+      h += `<tr>
+        <td style="padding:5px 8px;background:${bg};font-weight:700;color:${C.navy};white-space:normal;">${s.segment||''}</td>
+        <td style="padding:5px 8px;background:${bg};text-align:right;font-weight:700;">$${s.sizeMr||'—'}M</td>
+        <td style="padding:5px 8px;background:${bg};"><span style="background:${sc}22;color:${sc};font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${sl}</span></td>
+        <td style="padding:5px 8px;background:${bg};font-size:7px;color:${C.inkMid};white-space:normal;">${s.threat||'—'}</td>
+        <td style="padding:5px 8px;background:${bg};"><span style="color:${gc};font-size:7px;font-weight:700;">${(s.growth||'').toUpperCase()}</span></td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ── REVENUE GAP TABLE ───────────────────────────────────────────────────
+  function renderRevenueGaps(gaps) {
+    if (!gaps.length) return '';
+    let h = `<table style="width:100%;border-collapse:collapse;font-size:7.5px;">
+      <thead><tr>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">GAP</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:right;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">ARR GAP</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">PLAY</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">MECHANISM</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">CONF</th>
+      </tr></thead><tbody>`;
+    gaps.slice(0,5).forEach((g, i) => {
+      const bg = i % 2 === 0 ? '#fff' : C.parchment;
+      const pc = playConfig[g.playType] || playConfig.SCALE;
+      const ps = playShort[g.playType] || g.playType;
+      const cc = g.confidence==='H'?C.green:g.confidence==='M'?C.amber:C.red;
+      h += `<tr>
+        <td style="padding:5px 8px;background:${bg};border-left:3px solid ${pc.colour};">
+          <div style="font-weight:700;color:${C.navy};font-size:7.5px;white-space:normal;">${g.gap||''}</div>
+          <div style="font-size:6px;color:${C.inkFaint};margin-top:1px;">${g.currentMotion||''}</div>
+        </td>
+        <td style="padding:5px 8px;background:${bg};text-align:right;font-weight:800;font-size:9px;color:${C.navy};">$${g.arrGapM||'—'}M</td>
+        <td style="padding:5px 8px;background:${bg};"><span style="background:${pc.colour};color:#fff;font-size:6px;font-weight:800;padding:2px 4px;border-radius:2px;font-family:monospace;">${ps}</span></td>
+        <td style="padding:5px 8px;background:${bg};font-size:6.5px;color:${C.inkMid};white-space:normal;">${g.mechanism||''}</td>
+        <td style="padding:5px 8px;background:${bg};"><span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;">${g.confidence||'M'}</span></td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ── MARKET SIGNAL TABLE (mirrors consumer trend table) ─────────────────
+  function renderMarketSignals(signals) {
+    if (!signals.length) return '';
+    const momentumCol = { accelerating: C.green, building: C.blue, mainstream: C.navy, emerging: C.amber, declining: C.red };
+    const momentumW = { accelerating:90, building:70, mainstream:100, emerging:40, declining:20 };
+    let h = `<table style="width:100%;border-collapse:collapse;font-size:7px;">
+      <thead><tr style="background:${C.navy};color:#fff;">
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:110px;">SIGNAL</th>
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">EVIDENCE</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:80px;">NOW</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:80px;">18MO</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:40px;">MKT</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:50px;">PLAY</th>
+      </tr></thead><tbody>`;
+    signals.slice(0,6).forEach((s, i) => {
+      const bg = i%2===0?'#fff':C.parchment;
+      const nowCol = momentumCol[s.momentum] || C.inkMid;
+      const futCol = momentumCol[s.months18] || C.inkMid;
+      const nowW = momentumW[s.momentum] || 50;
+      const futW = momentumW[s.months18] || 50;
+      const arrow = futW > nowW ? '↑' : futW < nowW ? '↓' : '→';
+      const pc = playConfig[s.playType] || playConfig.SCALE;
+      const ps = playShort[s.playType] || s.playType;
+      const mktCol = { US:'#1a3a5c', EU:'#1e3a5f', IL:'#2563eb', SEA:'#059669', IN:'#d97706' };
+      const mc = mktCol[s.sourceMarket] || C.navy;
+      h += `<tr>
+        <td style="padding:5px 8px;background:${bg};">
+          <div style="font-weight:700;color:${C.navy};">${s.signal||''}</div>
+          ${s.headroomPct != null ? `<div style="margin-top:3px;background:${C.sand};border-radius:2px;height:3px;"><div style="background:${C.blue};width:${Math.min(s.headroomPct,100)}%;height:3px;border-radius:2px;"></div></div><div style="font-size:6px;color:${C.blue};margin-top:1px;">${s.headroomPct}% headroom</div>` : ''}
+        </td>
+        <td style="padding:5px 8px;background:${bg};color:${C.inkMid};white-space:normal;">${s.evidence||''}</td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;">
+          <div style="background:${C.sand};border-radius:2px;height:4px;margin-bottom:2px;"><div style="background:${nowCol};width:${nowW}%;height:4px;border-radius:2px;"></div></div>
+          <div style="font-size:6px;color:${nowCol};font-weight:700;text-transform:uppercase;">${s.momentum||''}</div>
+        </td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;">
+          <div style="background:${C.sand};border-radius:2px;height:4px;margin-bottom:2px;"><div style="background:${futCol};width:${futW}%;height:4px;border-radius:2px;"></div></div>
+          <div style="font-size:6px;color:${futCol};font-weight:700;">${arrow} ${s.months18||''}</div>
+        </td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${mc};color:#fff;font-size:6px;font-weight:800;padding:2px 4px;border-radius:2px;font-family:monospace;">${s.sourceMarket||''}</span></td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${pc.colour};color:#fff;font-size:6px;font-weight:800;padding:2px 3px;border-radius:2px;font-family:monospace;">${ps}</span></td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ── RADAR ────────────────────────────────────────────────────────────────
+  function renderRadar(axes) {
+    if (!axes || axes.length < 3) return '<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;">No radar data</div>';
+    const n = axes.length;
+    const CX=130, CY=115, R=85, LABEL_R=108;
+    const toRad = deg => (deg - 90) * Math.PI / 180;
+    const pt = (val, i) => {
+      const angle = toRad((360/n)*i);
+      const r = (val/100)*R;
+      return [CX + r*Math.cos(angle), CY + r*Math.sin(angle)];
+    };
+    const todayPts = axes.map((a,i) => pt(a.today||0, i));
+    const futurePts = axes.map((a,i) => pt(a.future||0, i));
+    const toPath = pts => pts.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+'Z';
+    let svg = `<svg viewBox="0 0 260 250" xmlns="http://www.w3.org/2000/svg" style="width:260px;height:250px;">`;
+    [20,40,60,80,100].forEach(pct => {
+      const r = (pct/100)*R;
+      const pts2 = axes.map((_,i)=>{const a=toRad((360/n)*i);return `${(CX+r*Math.cos(a)).toFixed(1)},${(CY+r*Math.sin(a)).toFixed(1)}`;});
+      svg += `<polygon points="${pts2.join(' ')}" fill="none" stroke="${C.sand}" stroke-width="0.8"/>`;
+    });
+    axes.forEach((_,i)=>{
+      const [x,y]=pt(100,i);
+      svg += `<line x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${C.sand}" stroke-width="0.8"/>`;
+    });
+    svg += `<path d="${toPath(todayPts)}" fill="${C.navy}25" stroke="${C.navy}" stroke-width="1.5"/>`;
+    svg += `<path d="${toPath(futurePts)}" fill="${C.blue}25" stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+    axes.forEach((ax,i)=>{
+      const angle = toRad((360/n)*i);
+      const lx = CX + LABEL_R*Math.cos(angle);
+      const ly = CY + LABEL_R*Math.sin(angle);
+      const anchor = Math.cos(angle)>0.1?'start':Math.cos(angle)<-0.1?'end':'middle';
+      const label = (ax.axis||'').slice(0,16);
+      const words = label.split(' ');
+      const todayScore  = Math.round(ax.today||0);
+      const futureScore = Math.round(ax.future||0);
+      const delta = futureScore - todayScore;
+      const deltaStr = delta > 0 ? \`+\${delta}\` : \`\${delta}\`;
+      const deltaCol = delta > 0 ? C.navy : '#dc2626';
+      // Bottom-pointing axes: extra yOff so score clears viewBox
+      const isBottom = Math.sin(angle * Math.PI / 180) > 0.6;
+      const yOff = isBottom ? 8 : 0;
+      if (words.length > 1) {
+        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly - 2 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="7" font-weight="700" fill="\${C.navy}" font-family="monospace">\${words[0]}</text>\`;
+        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 7 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="7" font-weight="700" fill="\${C.navy}" font-family="monospace">\${words.slice(1).join(' ')}</text>\`;
+        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 16 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="6.5" font-weight="700" fill="\${deltaCol}" font-family="monospace">\${todayScore}→\${futureScore} (\${deltaStr})</text>\`;
+      } else {
+        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 3 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="7" font-weight="700" fill="\${C.navy}" font-family="monospace">\${label}</text>\`;
+        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 12 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="6.5" font-weight="700" fill="\${deltaCol}" font-family="monospace">\${todayScore}→\${futureScore} (\${deltaStr})</text>\`;
+      }
+    });
+    svg += '</svg>';
+    return svg;
+  }
+
+  // ── MOVE CARDS ───────────────────────────────────────────────────────────
+  function renderMoveCards(moves) {
+    if (!moves.length) return '';
+    const confCol = c => ({CONFIRMED:C.green,DERIVED:C.blue,ESTIMATED:C.amber,'SIGNAL ONLY':C.red})[c]||C.amber;
+    const filterLabels = { A:'₹×Speed', B:'Gap×Right', C:'Trend-Timed' };
+    const filterColour = { A:C.green, B:C.blue, C:C.purple };
+    return moves.slice(0,3).map((m,i) => {
+      const pcfg = playConfig[m.playType] || playConfig.SCALE;
+      const conf = m.confidence || 'ESTIMATED';
+      const cc = confCol(conf);
+      const numLabel = ['①','②','③'][i]||`${i+1}`;
+      const filters = Array.isArray(m.filters)?m.filters:[];
+      const orgInstr = m.orgInstruction||'';
+      const scaling = m.mechanism||'';
+      return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:4px;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:${pcfg.colour};padding:6px 10px;display:flex;align-items:center;gap:6px;">
+          <span style="font-size:7.5px;font-weight:800;color:#fff;letter-spacing:.08em;font-family:monospace;">${pcfg.icon} ${pcfg.label}</span>
+          <span style="font-size:6px;color:rgba(255,255,255,.6);font-style:italic;">${pcfg.sub}</span>
+        </div>
+        <div style="padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:flex-start;gap:6px;">
+            <span style="font-size:13px;color:${pcfg.colour};line-height:1;flex-shrink:0;">${numLabel}</span>
+            <span style="font-size:9px;font-weight:800;color:${C.navy};line-height:1.2;white-space:normal;">${m.title||''}</span>
+          </div>
+          <div style="font-size:6.5px;color:${C.inkMid};font-style:italic;white-space:normal;">${m.segment||''}</div>
+          <div style="display:flex;align-items:baseline;gap:4px;">
+            <span style="font-size:16px;font-weight:900;color:${C.navy};line-height:1;">$${m.arrImpactM||'?'}</span>
+            <span style="font-size:7px;color:${C.inkFaint};">M ARR</span>
+            <span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;margin-left:4px;">${conf}</span>
+          </div>
+          <div style="font-size:7px;color:${C.inkFaint};">First revenue: <strong style="color:${C.navy};">${m.timeToRevenue||'TBD'}</strong></div>
+          <div style="font-size:7.5px;color:${C.navy};font-weight:600;line-height:1.4;border-left:2px solid ${pcfg.colour};padding-left:5px;white-space:normal;">${m.rationale||''}</div>
+          ${orgInstr ? `<div style="margin-top:3px;"><div style="font-size:6px;font-weight:800;letter-spacing:.08em;color:${pcfg.colour};margin-bottom:2px;font-family:monospace;">ORG CHANGE</div><div style="font-size:7px;color:${C.inkMid};white-space:normal;">${orgInstr}</div></div>` : ''}
+          ${scaling ? `<div style="font-size:6.5px;color:${C.inkFaint};white-space:normal;"><span style="font-weight:700;color:${C.inkMid};">Motion:</span> ${scaling}</div>` : ''}
+          <div style="font-size:6.5px;color:${C.inkFaint};border-top:1px solid ${C.sand};padding-top:4px;margin-top:auto;white-space:normal;">${m.evidence||''}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            ${filters.map(f=>`<span style="background:${filterColour[f]||C.navy}22;color:${filterColour[f]||C.navy};border:1px solid ${filterColour[f]||C.navy}55;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;font-family:monospace;">${filterLabels[f]||f}</span>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── GLOBAL COMP STRIP ────────────────────────────────────────────────────
+  function renderGlobalComps(comps) {
+    if (!comps.length) return '';
+    const mktCol = { US:'#1a3a5c', EU:'#1e3a5f', IL:'#7c3aed', SEA:'#059669', IN:'#d97706' };
+    return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
+      comps.slice(0,3).map(c => {
+        const mc = mktCol[c.market] || C.navy;
+        return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${mc};">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
+            <span style="background:${mc};color:#fff;font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${c.market||'?'}</span>
+            <span style="font-size:8px;font-weight:800;color:${C.navy};white-space:normal;">${c.company||''}</span>
+          </div>
+          <div style="font-size:6.5px;color:${C.inkFaint};margin-bottom:3px;">At ${c.stage||'comparable stage'}</div>
+          <div style="font-size:7px;color:${C.inkMid};line-height:1.3;margin-bottom:3px;white-space:normal;">${c.whatHappened||''}</div>
+          <div style="font-size:7px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding-left:5px;white-space:normal;">${c.prediction||''}</div>
+        </div>`;
+      }).join('') + '</div>';
+  }
+
+  // ── COMPETITOR THREAT TIMELINE ───────────────────────────────────────────
+  function renderCompetitorThreats(comps) {
+    if (!comps.length) return '';
+    return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
+      comps.slice(0,3).map(c => `
+        <div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${C.red};">
+          <div style="font-size:9px;font-weight:800;color:${C.navy};margin-bottom:3px;white-space:normal;">${c.name||''}</div>
+          <div style="font-size:14px;font-weight:900;color:${C.red};margin-bottom:3px;line-height:1;">${c.arrEst||'?'}</div>
+          <div style="font-size:7px;color:${C.inkMid};margin-bottom:2px;line-height:1.3;white-space:normal;">Targeting: ${c.targeting||''}</div>
+          <div style="font-size:7px;color:${C.inkFaint};">Threat by: <strong style="color:${C.red};">${c.threatBy||'TBD'}</strong></div>
+        </div>`).join('') + '</div>';
+  }
+
+  // ── ASSEMBLE PAGES ───────────────────────────────────────────────────────
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=Instrument+Sans:wght@400;600;700;800&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+  @page { size: A4; margin: 0; }
+  body { margin: 0; padding: 0; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+</style>
+</head><body>
+
+<!-- PAGE 1 -->
+<div class="page" style="${pageStyle}">
+
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid ${C.navy};">
+    <div>
+      <div style="font-size:8px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:${C.blue};margin-bottom:4px;font-family:monospace;">OPPORTUNITY BRIEF</div>
+      <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:${C.navy};line-height:1;">${company}</div>
+      <div style="font-size:9px;color:${C.inkFaint};margin-top:3px;">${subtitleLine}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(15,31,61,.18);line-height:1.2;font-family:monospace;">AdvisorSprint</div>
+      <div style="font-size:7.5px;color:rgba(15,31,61,.18);letter-spacing:.04em;margin-top:2px;">Harsha Belavady</div>
+    </div>
+  </div>
+
+  <!-- KPI Strip -->
+  ${renderKPIs(kpis)}
+
+  <!-- Segment Coverage Map -->
+  <div style="margin-bottom:12px;">
+    <div style="margin-bottom:6px;">
+      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">SEGMENT COVERAGE MAP</div>
+      ${sectionHdrs.segmentMap ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.segmentMap}</div>` : ''}
+    </div>
+    ${renderSegmentMap(segmentMap)}
+  </div>
+
+  <!-- Revenue Gap Table -->
+  <div style="margin-bottom:12px;">
+    <div style="margin-bottom:6px;">
+      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">REVENUE GAP ANALYSIS</div>
+      ${sectionHdrs.revenueGaps ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.revenueGaps}</div>` : ''}
+    </div>
+    ${renderRevenueGaps(revenueGaps)}
+  </div>
+
+  <!-- What The Market Is Telling You — home market competitors/challengers -->
+  <div style="margin-bottom:10px;">
+    <div style="margin-bottom:6px;">
+      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">WHAT THE MARKET IS TELLING YOU</div>
+      ${sectionHdrs.marketSignals ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.marketSignals}</div>` : ''}
+    </div>
+    ${renderMarketSignals(marketSignals)}
+  </div>
+
+  <!-- Competitive Edge — acquirer/investor assets or standalone structural advantage -->
+  ${competitiveEdge.length ? `
+  <div style="margin-bottom:10px;">
+    <div style="margin-bottom:6px;">
+      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">${acquisitionMode ? 'ACQUIRER EDGE NOT DEPLOYED' : 'STRUCTURAL ADVANTAGE'}</div>
+      ${sectionHdrs.competitiveEdge ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.competitiveEdge}</div>` : ''}
+    </div>
+    ${renderCompetitiveEdge(competitiveEdge)}
+  </div>` : ''}
+
+  <!-- Page 1 → Page 2 transition -->
+  ${db.page1Summary ? `
+  <div style="background:${C.blueLight};border-radius:3px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px;">
+    <div style="flex:1;">
+      <div style="font-size:6px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:3px;font-family:monospace;">SITUATION SUMMARY · THE CASE FOR ACTION</div>
+      <div style="font-size:8px;color:${C.navy};line-height:1.5;font-weight:500;">${db.page1Summary}</div>
+    </div>
+    <div style="flex-shrink:0;text-align:center;padding-left:12px;border-left:2px solid ${C.sand};">
+      <div style="font-size:7px;color:${C.inkFaint};margin-bottom:2px;">continued</div>
+      <div style="font-size:16px;color:${C.blue};font-weight:800;line-height:1;">→</div>
+      <div style="font-size:6.5px;color:${C.blue};font-weight:700;">Page 2</div>
+    </div>
+  </div>` : ''}
+
+  <!-- Footer -->
+  <div style="position:absolute;bottom:18px;left:36px;right:36px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:6.5px;color:${C.inkFaint};letter-spacing:.06em;font-family:monospace;">ADVISORSPRINT INTELLIGENCE · CONFIDENTIAL</div>
+    <div style="font-size:6.5px;color:${C.inkFaint};font-family:monospace;">PAGE 1 OF 2</div>
+  </div>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page" style="${pageStyle}">
+
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid ${C.sand};">
+    <div>
+      <div style="font-size:8px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:${C.blue};font-family:monospace;">18-MONTH TRANSFORMATION</div>
+      <div style="font-size:16px;font-weight:800;color:${C.navy};">${company} · Where to Play, How to Win</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <span style="background:${C.navy};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">⚡ SCALE</span>
+      <span style="background:${C.purple};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">◈ TRANSFORM</span>
+      <span style="background:${C.red};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">◇ DEFEND</span>
+      <div style="font-size:6.5px;color:${C.inkFaint};font-family:monospace;margin-left:4px;">PAGE 2 OF 2</div>
+    </div>
+  </div>
+
+  <!-- Strategic Tension — top of page 2, frames everything -->
+  ${tension ? `
+  <div style="background:${C.navy};border-radius:4px;padding:12px 16px;margin-bottom:14px;">
+    <div style="font-size:6.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;font-family:monospace;">THE STRATEGIC TENSION</div>
+    <div style="font-size:11px;font-weight:600;color:#fff;line-height:1.6;font-style:italic;">${tension}</div>
+  </div>` : ''}
+
+  <!-- Radar + Move Cards -->
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:14px;">
+    <div>
+      <div style="margin-bottom:6px;">
+        <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">STRATEGIC POSITION GAP</div>
+        ${sectionHdrs.radarGap ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.radarGap}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <svg width="10" height="10" xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" rx="1" fill="${C.navy}" fill-opacity="0.4" stroke="${C.navy}" stroke-width="1.5"/></svg>
+          <span style="font-size:7px;color:${C.inkFaint};font-family:monospace;font-weight:600;">Today</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <svg width="10" height="10" xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" rx="1" fill="${C.blue}" fill-opacity="0.2" stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="3,1.5"/></svg>
+          <span style="font-size:7px;color:${C.inkFaint};font-family:monospace;font-weight:600;">18 Months</span>
+        </div>
+      </div>
+      ${renderRadar(radarAxes)}
+    </div>
+    <div>
+      <div style="margin-bottom:6px;">
+        <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">THE 3 MOVES</div>
+        <div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">Closing the gaps identified on Page 1 — sequenced by speed and right to win.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        ${renderMoveCards(moves)}
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Read — global structural context, sits above comp signals -->
+  ${categoryRead ? `
+  <div style="display:grid;grid-template-columns:1fr 90px 110px;gap:0;background:#fff;border:1px solid ${C.sand};border-left:3px solid ${C.blue};border-radius:0 3px 3px 0;padding:7px 12px;margin-bottom:10px;align-items:center;">
+    <div>
+      <div style="font-size:6px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:3px;font-family:monospace;">GLOBAL CATEGORY CONTEXT</div>
+      <div style="font-size:7px;color:${C.navy};line-height:1.4;font-weight:600;">${categoryRead.globalTrend||''}</div>
+      <div style="font-size:6.5px;color:${C.inkMid};line-height:1.4;margin-top:2px;">${categoryRead.implication||''}</div>
+    </div>
+    <div style="text-align:center;padding:0 8px;border-left:1px solid ${C.sand};">
+      <div style="font-size:6px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:${C.inkFaint};margin-bottom:3px;font-family:monospace;">LEAD MKT</div>
+      <div style="background:${C.blue};color:#fff;font-size:9px;font-weight:800;padding:3px 6px;border-radius:2px;display:inline-block;font-family:monospace;">${categoryRead.leadMarket||'—'}</div>
+    </div>
+    <div style="text-align:center;padding:0 8px;border-left:1px solid ${C.sand};">
+      <div style="font-size:6px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:${C.inkFaint};margin-bottom:3px;font-family:monospace;">MKT LAG</div>
+      <div style="font-size:7.5px;font-weight:800;color:${C.red};">${categoryRead.homeMarketLag||'—'}</div>
+    </div>
+  </div>` : ''}
+
+  <!-- Country legend -->
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;padding:4px 8px;background:${C.parchment};border-radius:3px;flex-wrap:wrap;">
+    <span style="font-size:6px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:${C.inkFaint};margin-right:4px;font-family:monospace;">MARKETS</span>
+    ${[['US','United States'],['EU','Europe'],['IL','Israel'],['SEA','SE Asia'],['IN','India'],['UK','UK'],['AU','Australia']].map(([code,name]) =>
+      `<span style="font-size:6.5px;color:${C.inkMid};font-weight:600;"><span style="background:${C.navy};color:#fff;font-size:5.5px;font-weight:800;padding:1px 4px;border-radius:2px;margin-right:3px;font-family:monospace;">${code}</span>${name}</span>`
+    ).join('')}
+  </div>
+
+  <!-- International Arrival Sequence -->
+  ${arrivalSequence.length ? `
+  <div style="margin-bottom:12px;">
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.navy};font-family:monospace;">INTERNATIONAL ARRIVAL SEQUENCE</div>
+    ${renderArrivalSequence(arrivalSequence)}
+  </div>` : ''}
+
+  <!-- Global Comp Signal -->
+  ${globalComps.length ? `
+  <div style="margin-bottom:12px;">
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.blue};font-family:monospace;">GLOBAL COMP SIGNAL — PATTERN MATCH</div>
+    ${renderGlobalComps(globalComps)}
+  </div>` : ''}
+
+  <!-- Competitor Threat Timeline -->
+  ${competitors.length ? `
+  <div style="margin-bottom:12px;">
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.red};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.red};font-family:monospace;">IF YOU DON'T MOVE — THEY WILL</div>
+    ${renderCompetitorThreats(competitors)}
+  </div>` : ''}
+
+  <!-- Bold Statement — always last -->
+  ${boldStatement ? `
+  <div style="background:${C.navy};border-radius:4px;padding:16px 20px;margin-bottom:14px;">
+    <div style="font-size:7.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:8px;font-family:monospace;">THE VERDICT</div>
+    <div style="font-size:${boldStatement.length>100?'11':'13'}px;font-weight:700;color:#fff;line-height:1.5;font-style:italic;">${boldStatement}</div>
+  </div>` : ''}
+
+  <!-- Footer -->
+  <div style="position:absolute;bottom:18px;left:36px;right:36px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:6.5px;color:${C.inkFaint};letter-spacing:.06em;font-family:monospace;">ADVISORSPRINT INTELLIGENCE · CONFIDENTIAL · FOR INTERNAL USE ONLY</div>
+    <div style="font-size:6.5px;color:${C.inkFaint};font-family:monospace;">NUMBERS MARKED ESTIMATED/SIGNAL ONLY ARE DIRECTIONAL — VERIFY BEFORE PRESENTING</div>
+  </div>
+</div>
+
+</body></html>`;
+}
+
 // ── PDF HTML BUILDER ────────────────────────────────────────────────────────
 function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlocks, sources, elapsed }) {
   const acq = acquirer && acquirer.trim() ? acquirer.trim() : null;
@@ -949,6 +1697,7 @@ export default function AdvisorSprintIntelligence() {
   const [results, setResults] = useState({});
   const [dataBlocks, setDataBlocks] = useState({});
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [briefGenerating, setBriefGenerating] = useState(false);
   const [sources, setSources] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [elapsed, setElapsed] = useState(0);
@@ -1124,14 +1873,16 @@ export default function AdvisorSprintIntelligence() {
     try {
       setAppState("running");
       const w1texts = {};
-      const ALL_AGENTS = testMode ? ['market'] : [...W1, ...W2, 'synopsis'];
+      const ALL_AGENTS = testMode ? ['market'] : [...W1, ...W2, 'synopsis', 'brief'];
 
       for (const id of ALL_AGENTS) {
         if (signal.aborted) break;
         setStatuses(s => ({ ...s, [id]: "running" }));
 
         let ctx_for_agent = {};
-        if (id === 'synopsis') {
+        if (id === 'brief') {
+          ctx_for_agent = w1texts; // brief gets everything including synopsis
+        } else if (id === 'synopsis') {
           const trimmed = {};
           Object.entries(w1texts).forEach(([k,v]) => {
             if (typeof v !== 'string') { trimmed[k] = v; return; }
@@ -1176,6 +1927,35 @@ export default function AdvisorSprintIntelligence() {
     if (abortRef.current) abortRef.current.abort();
     if (timerRef.current) clearInterval(timerRef.current);
     setAppState("idle");
+  };
+
+  const generateSaaSBrief = async () => {
+    if (briefGenerating) return;
+    setBriefGenerating(true);
+    try {
+      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks });
+      const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html, company, acquirer }),
+        signal: AbortSignal.timeout(120000),
+      });
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({ error: 'Brief generation failed' }));
+        throw new Error(err.error || `Server error ${pdfRes.status}`);
+      }
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${company.replace(/\s+/g,'-')}_OpportunityBrief_${new Date().toISOString().slice(0,10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      alert(`Brief generation failed: ${e.message}`);
+    } finally {
+      setBriefGenerating(false);
+    }
   };
 
   const generatePDF = async () => {
@@ -1235,9 +2015,16 @@ export default function AdvisorSprintIntelligence() {
         <div style={{ flex: 1 }} />
         <div style={{ fontSize: 11, color: statusColor, fontFamily: 'monospace' }}>{statusLabel}</div>
         {appState === 'done' && (
-          <button onClick={generatePDF} disabled={pdfGenerating} style={{ padding: '6px 16px', background: pdfGenerating ? '#ffffff20' : N.blue, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: pdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
-            {pdfGenerating ? 'Generating…' : '⬇ PDF'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={generatePDF} disabled={pdfGenerating} style={{ padding: '6px 16px', background: pdfGenerating ? '#ffffff20' : N.navyMid, color: '#fff', border: '1px solid #ffffff30', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: pdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
+              {pdfGenerating ? 'Generating…' : '⬇ Full Report'}
+            </button>
+            {dataBlocks['brief'] && (
+              <button onClick={generateSaaSBrief} disabled={briefGenerating} style={{ padding: '6px 16px', background: briefGenerating ? '#ffffff20' : N.blue, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: briefGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
+                {briefGenerating ? 'Generating…' : '⬇ Opportunity Brief'}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
