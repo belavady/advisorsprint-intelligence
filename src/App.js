@@ -1699,6 +1699,7 @@ export default function AdvisorSprintIntelligence() {
   const [dataBlocks, setDataBlocks] = useState({});
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [briefGenerating, setBriefGenerating] = useState(false);
+  const [retryingBrief, setRetryingBrief] = useState(false);
   const [sources, setSources] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [elapsed, setElapsed] = useState(0);
@@ -1909,18 +1910,58 @@ export default function AdvisorSprintIntelligence() {
           return;
         }
         w1texts[id] = text;
+        // Persist after each agent — protects against page refresh or brief-only retry
+        try { sessionStorage.setItem(`sprint_${company.trim()}`, JSON.stringify(w1texts)); } catch(e) {}
 
         if (!signal.aborted && id !== 'synopsis') {
           setStatuses(s => ({ ...s, [id]: "done" }));
           if (!testMode) await new Promise(r => setTimeout(r, 60000));
         }
       }
-      if (!signal.aborted) setAppState("done");
+      if (!signal.aborted) {
+        setAppState("done");
+        try { sessionStorage.removeItem(`sprint_${company.trim()}`); } catch(e) {}
+      }
     } catch(e) {
       console.error("Sprint error:", e);
       setAppState("error");
     } finally {
       if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const retryBrief = async () => {
+    if (retryingBrief) return;
+    setRetryingBrief(true);
+    setAppState("running");
+    const co = company.trim();
+    try {
+      const saved = sessionStorage.getItem(`sprint_${co}`);
+      if (!saved) throw new Error("No saved sprint data — please re-run the full sprint");
+      const w1texts = JSON.parse(saved);
+      if (!w1texts['synopsis']) throw new Error("Synopsis missing — please re-run the full sprint");
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const signal = ctrl.signal;
+      setStatuses(s => ({ ...s, brief: "running" }));
+      const acq = acquisitionMode ? acquirer.trim() : '';
+      const ctx = context.trim();
+      const ctxWithMeta = `COMPANY: ${co}
+SECTOR: ${sector}
+STAGE: ${stage}
+${acquisitionMode && acq ? `ACQUIRER: ${acq}
+` : ''}${ctx ? `ADDITIONAL CONTEXT: ${ctx}
+` : ''}`;
+      const prompt = makeSaaSPrompt('brief', co, acq, ctxWithMeta, w1texts);
+      await runAgent('brief', prompt, signal);
+      setStatuses(s => ({ ...s, brief: "done" }));
+      setAppState("done");
+    } catch(e) {
+      console.error("[RetryBrief]", e.message);
+      alert(`Retry failed: ${e.message}`);
+      setAppState("error");
+    } finally {
+      setRetryingBrief(false);
     }
   };
 
@@ -2015,6 +2056,12 @@ export default function AdvisorSprintIntelligence() {
         <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '.3em', textTransform: 'uppercase', color: '#ffffff40' }}>Intelligence</div>
         <div style={{ flex: 1 }} />
         <div style={{ fontSize: 11, color: statusColor, fontFamily: 'monospace' }}>{statusLabel}</div>
+        {appState === 'error' && results['synopsis'] && (
+          <button onClick={retryBrief} disabled={retryingBrief}
+            style={{ padding: '6px 16px', background: retryingBrief ? '#ffffff20' : '#b85c38', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: retryingBrief ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
+            {retryingBrief ? '⟳ Retrying…' : '↺ Retry Brief Only'}
+          </button>
+        )}
         {appState === 'done' && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={generatePDF} disabled={pdfGenerating} style={{ padding: '6px 16px', background: pdfGenerating ? '#ffffff20' : N.navyMid, color: '#fff', border: '1px solid #ffffff30', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: pdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
