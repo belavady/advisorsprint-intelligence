@@ -1085,18 +1085,18 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       const todayScore  = Math.round(ax.today||0);
       const futureScore = Math.round(ax.future||0);
       const delta = futureScore - todayScore;
-      const deltaStr = delta > 0 ? \`+\${delta}\` : \`\${delta}\`;
+      const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
       const deltaCol = delta > 0 ? C.navy : '#dc2626';
       // Bottom-pointing axes: extra yOff so score clears viewBox
       const isBottom = Math.sin(angle * Math.PI / 180) > 0.6;
       const yOff = isBottom ? 8 : 0;
       if (words.length > 1) {
-        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly - 2 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="7" font-weight="700" fill="\${C.navy}" font-family="monospace">\${words[0]}</text>\`;
-        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 7 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="7" font-weight="700" fill="\${C.navy}" font-family="monospace">\${words.slice(1).join(' ')}</text>\`;
-        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 16 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="6.5" font-weight="700" fill="\${deltaCol}" font-family="monospace">\${todayScore}→\${futureScore} (\${deltaStr})</text>\`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly - 2 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words[0]}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 7 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words.slice(1).join(' ')}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 16 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
       } else {
-        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 3 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="7" font-weight="700" fill="\${C.navy}" font-family="monospace">\${label}</text>\`;
-        svg += \`<text x="\${lx.toFixed(1)}" y="\${(ly + 12 + yOff).toFixed(1)}" text-anchor="\${anchor}" font-size="6.5" font-weight="700" fill="\${deltaCol}" font-family="monospace">\${todayScore}→\${futureScore} (\${deltaStr})</text>\`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 3 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${label}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 12 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
       }
     });
     svg += '</svg>';
