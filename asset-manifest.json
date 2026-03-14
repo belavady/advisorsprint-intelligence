@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/advisorsprint-intelligence/static/css/main.e6c13ad2.css",
-    "main.js": "/advisorsprint-intelligence/static/js/main.fa0875e5.js",
+    "main.js": "/advisorsprint-intelligence/static/js/main.d346ba23.js",
     "static/js/453.e31427a1.chunk.js": "/advisorsprint-intelligence/static/js/453.e31427a1.chunk.js",
     "index.html": "/advisorsprint-intelligence/index.html",
     "main.e6c13ad2.css.map": "/advisorsprint-intelligence/static/css/main.e6c13ad2.css.map",
-    "main.fa0875e5.js.map": "/advisorsprint-intelligence/static/js/main.fa0875e5.js.map",
+    "main.d346ba23.js.map": "/advisorsprint-intelligence/static/js/main.d346ba23.js.map",
     "453.e31427a1.chunk.js.map": "/advisorsprint-intelligence/static/js/453.e31427a1.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.fa0875e5.js"
+    "static/js/main.d346ba23.js"
   ]
 }
