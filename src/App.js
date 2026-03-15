@@ -1904,9 +1904,36 @@ export default function AdvisorSprintIntelligence() {
       if (!signal.aborted) {
         setAppState("done");
         try { sessionStorage.removeItem(`sprint_${company.trim()}`); } catch(e) {}
-        // Auto-generate the opportunity brief PDF immediately after sprint completes
-        // Small delay to let React state settle so dataBlocks['brief'] is available
-        setTimeout(() => { generateSaaSBriefAuto(company, acquirer, sector, stage); }, 800);
+        // Auto-generate the opportunity brief PDF using w1texts directly
+        // Cannot use dataBlocks state here — setDataBlocks is async and stale in this closure
+        // Instead: parse the brief DATA_BLOCK from w1texts and pass it explicitly
+        try {
+          const briefRaw = w1texts['brief'] || '';
+          const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+          if (dbMatch) {
+            const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*
+?/,'').replace(/
+?```$/,'').trim();
+            const briefDataBlock = JSON.parse(raw);
+            const allDataBlocks = { ...Object.fromEntries(
+              Object.entries(w1texts).map(([k, v]) => {
+                if (typeof v !== 'string') return [k, v];
+                const m = v.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+                if (!m) return [k, null];
+                try { return [k, JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*
+?/,'').replace(/
+?```$/,'').trim())]; }
+                catch(e) { return [k, null]; }
+              }).filter(([,v]) => v !== null)
+            ), brief: briefDataBlock };
+            const allResults = Object.fromEntries(
+              Object.entries(w1texts).map(([k,v]) => [k, typeof v === 'string' ? v.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim() : v])
+            );
+            generateSaaSBriefFromData(co, acq, sector, stage, allResults, allDataBlocks, acquisitionMode);
+          }
+        } catch(parseErr) {
+          console.warn('[AutoBrief] Could not parse brief data block:', parseErr.message);
+        }
       }
     } catch(e) {
       console.error("Sprint error:", e);
@@ -1957,13 +1984,15 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
     setAppState("idle");
   };
 
-  const generateSaaSBriefAuto = async (co, acq, sec, stg) => {
-    // Called automatically at sprint end — uses passed values not stale closure state
+  const generateSaaSBriefFromData = async (co, acq, sec, stg, allResults, allDataBlocks, acqMode) => {
+    // Called at sprint end with fully resolved data — no stale React state
     setBriefGenerating(true);
     try {
-      // dataBlocks is from React state via setDataBlocks — read it via a ref snapshot
-      // We call buildSaaSBriefHtml with the current DOM state
-      const html = buildSaaSBriefHtml({ company: co, acquirer: acq, sector: sec, stage: stg, results, dataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
+      const html = buildSaaSBriefHtml({
+        company: co, acquirer: acq, sector: sec, stage: stg,
+        results: allResults, dataBlocks: allDataBlocks,
+        companyMode: acqMode ? 'acquired' : 'standalone'
+      });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1983,7 +2012,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
       URL.revokeObjectURL(url);
     } catch(e) {
       console.warn('Auto brief generation failed:', e.message);
-      // Non-fatal — user can still click the button manually
+      // Non-fatal — button still available for manual retry
     } finally {
       setBriefGenerating(false);
     }
