@@ -1911,18 +1911,14 @@ export default function AdvisorSprintIntelligence() {
           const briefRaw = w1texts['brief'] || '';
           const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
           if (dbMatch) {
-            const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*
-?/,'').replace(/
-?```$/,'').trim();
+            const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
             const briefDataBlock = JSON.parse(raw);
             const allDataBlocks = { ...Object.fromEntries(
               Object.entries(w1texts).map(([k, v]) => {
                 if (typeof v !== 'string') return [k, v];
                 const m = v.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
                 if (!m) return [k, null];
-                try { return [k, JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*
-?/,'').replace(/
-?```$/,'').trim())]; }
+                try { return [k, JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
                 catch(e) { return [k, null]; }
               }).filter(([,v]) => v !== null)
             ), brief: briefDataBlock };
