@@ -1938,9 +1938,7 @@ export default function AdvisorSprintIntelligence() {
         try {
           const briefRaw = w1texts['brief'] || '';
           const dbM = briefRaw.match(/<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
-          const briefDB = dbM ? JSON.parse(dbM[1].trim().replace(/^```[a-z]*
-?/,'').replace(/
-?```$/,'').trim()) : {};
+          const briefDB = dbM ? JSON.parse(dbM[1].trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim()) : {};
           const synopsisText = (w1texts['synopsis'] || '').replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim();
           runGapAnalysis(co, ctx, synopsisText, briefDB);
         } catch(e) { console.warn('[Agent12 trigger]', e.message); }
