@@ -1857,6 +1857,13 @@ export default function AdvisorSprintIntelligence() {
   // ── runSprint ───────────────────────────────────────────────────────────────
   const runSprint = async () => {
     if (!company.trim() || appState === "running") return;
+    // Warn if results already exist — re-run costs full credits
+    if (Object.keys(results).length > 0) {
+      const confirmed = window.confirm(
+        `Re-running will cost full credits (~$6) and overwrite the existing ${company.trim()} analysis.\n\nAre you sure?`
+      );
+      if (!confirmed) return;
+    }
     if (abortRef.current) abortRef.current.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -1933,15 +1940,17 @@ export default function AdvisorSprintIntelligence() {
       }
       if (!signal.aborted) {
         setAppState("done");
-        try { sessionStorage.removeItem(`sprint_${company.trim()}`); } catch(e) {}
-        // Trigger Agent 12 gap analysis using w1texts directly
-        try {
-          const briefRaw = w1texts['brief'] || '';
-          const dbM = briefRaw.match(/<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
-          const briefDB = dbM ? JSON.parse(dbM[1].trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim()) : {};
-          const synopsisText = (w1texts['synopsis'] || '').replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim();
-          runGapAnalysis(co, ctx, synopsisText, briefDB);
-        } catch(e) { console.warn('[Agent12 trigger]', e.message); }
+        // NOTE: sessionStorage cleared AFTER brief/gap triggers use it
+        // Trigger Agent 12 gap analysis — only if context was provided
+        if (ctx && ctx.trim().length > 50) {
+          try {
+            const briefRaw = w1texts['brief'] || '';
+            const dbM = briefRaw.match(/<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+            const briefDB = dbM ? JSON.parse(dbM[1].trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim()) : {};
+            const synopsisText = (w1texts['synopsis'] || '').replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim();
+            runGapAnalysis(co, ctx, synopsisText, briefDB);
+          } catch(e) { console.warn('[Agent12 trigger]', e.message); }
+        }
         // Auto-generate the opportunity brief PDF using w1texts directly
         // Cannot use dataBlocks state here — setDataBlocks is async and stale in this closure
         // Instead: parse the brief DATA_BLOCK from w1texts and pass it explicitly
@@ -1951,6 +1960,11 @@ export default function AdvisorSprintIntelligence() {
           if (dbMatch) {
             const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
             const briefDataBlock = JSON.parse(raw);
+            // Only auto-generate if brief has real content — skip if just stub/recovery block
+            if (!briefDataBlock.strategicTension && !briefDataBlock.moves?.length) {
+              console.warn('[AutoBrief] Brief DATA_BLOCK is sparse — skipping auto-generation. Use button to retry.');
+              return;
+            }
             const allDataBlocks = { ...Object.fromEntries(
               Object.entries(w1texts).map(([k, v]) => {
                 if (typeof v !== 'string') return [k, v];
@@ -1968,6 +1982,8 @@ export default function AdvisorSprintIntelligence() {
         } catch(parseErr) {
           console.warn('[AutoBrief] Could not parse brief data block:', parseErr.message);
         }
+        // Clear sessionStorage now that brief + gap triggers have read from it
+        try { sessionStorage.removeItem(`sprint_${company.trim()}`); } catch(e) {}
       }
     } catch(e) {
       console.error("Sprint error:", e);
@@ -2158,7 +2174,7 @@ REFRAME: "..." → "..." — how to sharpen the instruction`;
     const tracePages = ['synopsis','brief'].map((id, idx) => {
       const thinking = allThinking[id] || '';
       const toolLog = allToolLogs[id] || [];
-      const agentNum = id === 'synopsis' ? 9 : 11;
+      const agentNum = id === 'synopsis' ? 10 : 11;
       const agentName = id === 'synopsis' ? 'EXECUTIVE SYNOPSIS' : 'OPPORTUNITY BRIEF';
       const pageNum = idx + 2;
       const searchRows = toolLog.map((t,i) => `
@@ -2180,7 +2196,9 @@ REFRAME: "..." → "..." — how to sharpen the instruction`;
         <div style="margin-bottom:16px;">
           <div style="font-size:8px;font-weight:800;letter-spacing:.1em;color:${green};margin-bottom:8px;padding-bottom:4px;border-bottom:1.5px solid ${green};">EXTENDED THINKING — HOW THE AGENT REASONED</div>
           <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:3px solid ${green};border-radius:2px;padding:12px 14px;">
-            <div style="font-size:7px;color:#166534;line-height:1.7;white-space:pre-wrap;word-break:break-word;">${thinking.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <div style="font-size:6.5px;color:#6b7280;margin-bottom:6px;font-family:monospace;">${thinking.length} characters · ${thinking.split(' ').length} words</div>
+            <div style="font-size:7px;color:#166534;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:600px;overflow:hidden;">${thinking.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            ${thinking.length > 3000 ? `<div style="font-size:6.5px;color:#6b7280;margin-top:6px;font-style:italic;">Showing first ~3,000 chars of ${thinking.length} total. Full trace in console log.</div>` : ''}
           </div>
         </div>` : ''}
         ${toolLog.length ? `
@@ -2203,7 +2221,10 @@ REFRAME: "..." → "..." — how to sharpen the instruction`;
       </div>`;
     }).join('');
 
-    const gap = gapText || '(Gap analysis not yet available)';
+    const gapContent = gapText 
+      ? gapText 
+      : '(Gap analysis was still running when this PDF was generated. Click ⬇ Research Trace again after a few minutes to get the complete version with gap analysis.)';
+    const gap = gapContent;
     const page4 = `<div class="page" style="padding:36px;font-family:'Instrument Sans',sans-serif;position:relative;min-height:1050px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid ${navy};">
         <div>
@@ -2230,11 +2251,38 @@ REFRAME: "..." → "..." — how to sharpen the instruction`;
 
   const generateTracePDF = async () => {
     if (tracePdfGenerating) return;
+    // If gap analysis is still running, wait up to 60s for it to complete
+    if (gapAnalysisRunning) {
+      let waited = 0;
+      while (gapAnalysisRunning && waited < 60000) {
+        await new Promise(r => setTimeout(r, 1000));
+        waited += 1000;
+      }
+    }
     setTracePdfGenerating(true);
     try {
+      // Resolve dataBlocks from sessionStorage (not stale React state)
+      let resolvedDataBlocks = { ...dataBlocks };
+      try {
+        const saved = sessionStorage.getItem(`sprint_${company.trim()}`);
+        if (saved) {
+          const w1 = JSON.parse(saved);
+          Object.entries(w1).forEach(([id, raw]) => {
+            if (typeof raw !== 'string') return;
+            const m = raw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+            if (m) {
+              try {
+                const parsed = JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim());
+                resolvedDataBlocks[id] = parsed;
+              } catch(e) {}
+            }
+          });
+        }
+      } catch(e) { console.warn('[TracePDF] sessionStorage read:', e.message); }
+
       const html = buildTracePdfHtml(
         company.trim(), acquirer.trim(), context.trim(),
-        dataBlocks, thinkingBlocks, toolLogs,
+        resolvedDataBlocks, thinkingBlocks, toolLogs,
         gapAnalysis, elapsed
       );
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
