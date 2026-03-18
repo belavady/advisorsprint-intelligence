@@ -1869,10 +1869,13 @@ export default function AdvisorSprintIntelligence() {
             const cleaned = raw.replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
             const parsed = JSON.parse(cleaned);
             setDataBlocks(d => ({ ...d, [id]: parsed }));
-            // For brief: write flag to sessionStorage so button condition can find it
-            // even before React state propagates
+            // For brief: persist parsed DATA_BLOCK and flag to sessionStorage
+            // so the manual button can access it even after sprint_${co} is cleared
             if (id === 'brief') {
-              try { sessionStorage.setItem('briefReady', '1'); } catch(e) {}
+              try {
+                sessionStorage.setItem('briefReady', '1');
+                sessionStorage.setItem('briefDataBlock', JSON.stringify(parsed));
+              } catch(e) {}
             }
           } catch(e) {
             console.warn('[DataBlock] parse failed:', id, e.message, '| Raw (first 200):', (dbMatch[1]||dbMatch[2]||'').trim().slice(0,200));
@@ -1896,7 +1899,20 @@ export default function AdvisorSprintIntelligence() {
               recoveredBlock.verdictRow = { verdict: 'WATCH', finding: 'Analysis complete — see prose below for full findings', confidence: 'L' };
             }
             setDataBlocks(d => ({ ...d, [id]: recoveredBlock }));
+            // For brief: even with recovery block, write flag so button appears
+            // Brief will render with partial data — better than nothing
+            if (id === 'brief') {
+              try {
+                sessionStorage.setItem('briefReady', '1');
+                sessionStorage.setItem('briefDataBlock', JSON.stringify(recoveredBlock));
+              } catch(e) {}
+            }
           }
+        }
+        // For brief: if no DATA_BLOCK found at all, still signal button to show
+        // so user knows brief ran but had no parseable output
+        if (id === 'brief' && !dbMatch) {
+          try { sessionStorage.setItem('briefReady', '1'); } catch(e) {}
         }
         setResults(r => ({ ...r, [id]: cleanText }));
         setStatuses(s => ({ ...s, [id]: "done" }));
@@ -1930,7 +1946,10 @@ export default function AdvisorSprintIntelligence() {
     setResults({});
     setDataBlocks({});
     setSources([]);
-    try { sessionStorage.removeItem('briefReady'); } catch(e) {}
+    try {
+      sessionStorage.removeItem('briefReady');
+      sessionStorage.removeItem('briefDataBlock');
+    } catch(e) {}
     setElapsed(0);
 
     try {
@@ -2199,23 +2218,19 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
     if (briefGenerating) return;
     setBriefGenerating(true);
     try {
-      // If dataBlocks['brief'] missing (stale state), parse it from results text
+      // Resolve brief DATA_BLOCK — check sources in priority order:
+      // 1. React state (if still populated from this session)
+      // 2. Dedicated sessionStorage key (persists after sprint_${co} is cleared)
       let resolvedDataBlocks = dataBlocks;
-      if (!dataBlocks['brief'] && results['brief']) {
+      if (!dataBlocks['brief']?.agent) {
         try {
-          const raw = (results['brief'] + (dataBlocks['brief'] ? '' : ''));
-          // results stores cleaned text — try sessionStorage for full w1texts
-          const saved = sessionStorage.getItem(`sprint_${company.trim()}`);
+          const saved = sessionStorage.getItem('briefDataBlock');
           if (saved) {
-            const w1 = JSON.parse(saved);
-            const briefRaw = w1['brief'] || '';
-            const m = briefRaw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
-            if (m) {
-              const parsed = JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim());
-              resolvedDataBlocks = { ...dataBlocks, brief: parsed };
-            }
+            const parsed = JSON.parse(saved);
+            resolvedDataBlocks = { ...dataBlocks, brief: parsed };
+            console.log('[generateSaaSBrief] Loaded brief DATA_BLOCK from sessionStorage');
           }
-        } catch(e) { console.warn('[generateSaaSBrief] dataBlock parse:', e.message); }
+        } catch(e) { console.warn('[generateSaaSBrief] sessionStorage read failed:', e.message); }
       }
       const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks: resolvedDataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
