@@ -76,10 +76,10 @@ Read every agent output systematically before writing anything:
 - Agent 2 (Product): moat components, disintermediation risk → STRATEGIC TENSION
 - Agent 3 (GTM): motion efficiency, PLG/enterprise balance → REVENUE GAP TABLE + MOVES
 - Agent 4 (Revenue): ARR health, Rule of 40, unit economics → KPI STRIP (derived metrics only)
-- Agent 5 (Customer): ICP coverage, segment health, churn → SEGMENT COVERAGE MAP
-- Agent 6 (Competitive): TWO things — (a) moat threats → COMPETITIVE THREAT TIMELINE; (b) what home-market competitors/challengers are doing differently that proves a motion or segment this company hasn't addressed → MARKET SIGNALS TABLE
+- Agent 5 (Customer): ICP coverage, segment health, churn → SEGMENT COVERAGE MAP + topChurnDriver (single biggest reason clients leave — the product-market fit gap)
+- Agent 6 (Competitive): THREE things — (a) moat threats → COMPETITIVE THREAT TIMELINE; (b) home-market competitors proving untried motions → MARKET SIGNALS TABLE; (c) switching cost per segment → segmentMap.switchingCost + diffDurability (which differentiators survive 18 months and which erode)
 - Agent 7 (Funding): (a) valuation context, exit scenarios → KPI STRIP + VERDICT; (b) acquirer/investor assets not yet activated for this product → COMPETITIVE EDGE section
-- Agent 8 (Pricing): pricing power, model stress → REVENUE GAP TABLE
+- Agent 8 (Pricing): pricing power, model stress → REVENUE GAP TABLE + moves.pricingNote (is the value metric correctly aligned for each move)
 - Agent 9 (International): global comps, expansion signals → GLOBAL COMP SIGNAL (Page 2) + ARRIVAL SEQUENCE (Page 2, conditional on internationalPosture)
 
 PAGE 1 IS HOME MARKET ONLY. Every data point on Page 1 describes what is happening in this company's home market — segment gaps, revenue gaps, what home market competitors are doing, structural edge. No international comps or arrival signals on Page 1.
@@ -135,18 +135,34 @@ In all cases: company name, what stage, what happened (max 60 chars), what it pr
 {
   "agent": "brief",
   "kpis": [
-    {"label": "DERIVED metric name — e.g. Revenue per ICP Account", "value": "computed number with unit", "sub": "calculation shown: e.g. ARR ÷ ICP count = $X per account", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
-    {"label": "DERIVED metric name — e.g. Expansion Gap", "value": "computed number", "sub": "calculation shown: e.g. NRR 108% × ARR $12M = $960k left in base", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
-    {"label": "DERIVED metric name — e.g. CAC Payback Delta", "value": "X months vs Y benchmark", "sub": "calculation shown vs named category benchmark", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
-    {"label": "DERIVED metric name — e.g. Competitive Velocity", "value": "rate or ratio", "sub": "how fast named competitor is closing the gap", "trend": "up|down|flat|watch", "confidence": "H|M|L"}
+    {"label": "DERIVED metric — e.g. Revenue per Client", "value": "computed number with unit", "sub": "calculation shown inline e.g. ARR $7M ÷ 237 clients = $29.5k", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
+    {"label": "DERIVED metric — e.g. Data Monetisation Rate", "value": "computed number", "sub": "calculation shown e.g. $0 recurring ÷ 250M datapoints = $0/point", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
+    {"label": "DERIVED metric — e.g. Synthetic Cost Gap", "value": "ratio or delta vs competitor", "sub": "calculation shown e.g. $10k/poll vs Aaru $700/poll = 14x disadvantage", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
+    {"label": "DERIVED metric — e.g. Threat Clock", "value": "X months remaining", "sub": "time before named competitor reaches critical mass in this company's primary segment", "trend": "up|down|flat|watch", "confidence": "H|M|L"}
   ],
-  "strategicTension": "One precise sentence naming the specific contradiction — [signal A] while [signal B] — this means [implication]. Max 160 chars.",
+  "moat": {
+    "core": "One sentence: what the core moat is — data asset, switching cost, network effect, regulatory, brand. Be specific: not 'strong brand' but '250M human-verified survey responses no AI can replicate in 24 months'.",
+    "durability": "H|M|L",
+    "durabilityReason": "One sentence: why it is H/M/L — what specifically protects or erodes it",
+    "breaker": "One sentence: the single thing that would break this moat — technology shift, regulatory change, data commodity, competitor move",
+    "leverage": "One sentence: the highest-value untapped application of this moat — what product or motion would compound it fastest"
+  },
+  "topChurnDriver": "One sentence: the single biggest reason clients leave or pause — be specific: not 'competition' but 'election cycle dependency — clients pause in off-years because there is no recurring product that creates value between campaigns'. This reveals the deepest product-market fit gap.",
+  "strengthsAndDeltas": [
+    {
+      "asset": "Name of the working asset — e.g. 'Embold non-partisan brand'",
+      "currentState": "One sentence: what it is today — reach, usage, revenue contribution. Be specific with numbers.",
+      "delta": "One sentence: what happens to ARR if this asset is doubled down on — specific number and mechanism. Format: +$XM ARR if [specific action].",
+      "arrDelta": 0
+    }
+  ],
+  "strategicTension": "One precise sentence: [signal A] while [signal B] — this means [implication]. Max 160 chars. Name the specific metric and the specific consequence.",
   "radarAxes": [
     {"axis": "Market Timing", "today": 0, "future": 0},
     {"axis": "Product Moat", "today": 0, "future": 0},
     {"axis": "Revenue Quality", "today": 0, "future": 0},
     {"axis": "GTM Efficiency", "today": 0, "future": 0},
-    {"axis": "Competitive Position", "today": 0, "future": 0},
+    {"axis": "Competitive Pos.", "today": 0, "future": 0},
     {"axis": "Capital Efficiency", "today": 0, "future": 0}
   ],
   "segmentMap": [
@@ -155,42 +171,51 @@ In all cases: company name, what stage, what happened (max 60 chars), what it pr
       "sizeMr": 0,
       "status": "owned|partial|at_risk",
       "growth": "high|medium|low",
-      "threat": "Competitor colonising this segment or blank if owned"
+      "threat": "Named competitor colonising this segment — blank if fully owned",
+      "windowMonths": 0,
+      "switchingCost": "LOW|MED|HIGH — how hard is it for a client in this segment to switch to the named competitor. LOW = no contract, commodity product, zero migration cost. HIGH = deep integration, proprietary data, long contract."
     }
   ],
   "revenueGaps": [
     {
-      "gap": "gap description",
+      "gap": "gap description — what is missing",
       "arrGapM": 0,
-      "currentMotion": "PLG|Enterprise|Channel|Usage",
       "playType": "SCALE|TRANSFORM|DEFEND",
-      "mechanism": "how to close — specific motion or action",
+      "mechanism": "specific motion — what action closes this gap",
+      "bestPlaced": "Named competitor best positioned to take this gap if company does not move",
+      "windowMonths": 0,
       "confidence": "H|M|L"
     }
   ],
   "marketSignals": [
     {
       "signal": "signal name (max 20 chars)",
-      "evidence": "one evidence line (max 45 chars)",
+      "evidence": "one evidence line with ARR/funding/customers (max 45 chars)",
+      "competitorPlay": "what that competitor is specifically doing in this signal — one action (max 50 chars)",
       "momentum": "accelerating|building|mainstream|emerging|declining",
       "months18": "accelerating|building|mainstream|emerging|declining",
-      "sourceMarket": "US|EU|IL|SEA|IN",
       "headroomPct": 0,
       "playType": "SCALE|TRANSFORM|DEFEND"
     }
   ],
   "moves": [
     {
-      "title": "4 words max — name the motion or segment, not the framework",
+      "title": "4 words max — name the motion or segment",
       "segment": "segment or motion targeted",
       "arrImpactM": 0,
       "playType": "SCALE|TRANSFORM|DEFEND",
-      "mechanism": "specific motion — how this company reaches scale",
-      "orgInstruction": "what must change organisationally — build, hire, restructure, ring-fence",
+      "mechanism": "specific motion — how this company reaches scale on this gap",
+      "orgInstruction": "what must change — hire, build, restructure, ring-fence. One sentence.",
+      "companyHas": "What the company already has that makes this move executable — data, relationships, product, team",
+      "companyNeeds": "What the company still needs to build or hire to execute — be honest",
+      "companyHas": "What the company already has that makes this move executable — data, product, relationships, team. One sentence.",
+      "companyNeeds": "What the company must still build or hire — be honest. One sentence.",
+      "pricingNote": "If the current pricing model is misaligned with this move — name it. E.g. 'CR charges per poll; correct metric is per seat — same clients at 3x ACV'. Leave blank if pricing is correctly aligned.",
+      "contrarian": "The one insight the CEO has not considered — the non-obvious angle that makes this move more valuable or more urgent than it appears. One sentence. Do not restate the mechanism.",
       "confidence": "CONFIRMED|DERIVED|ESTIMATED|SIGNAL ONLY",
-      "timeToRevenue": "Q1 26",
-      "filters": ["A", "B"],
-      "rationale": "one sentence max 120 chars",
+      "timeToRevenue": "Q1 2026",
+      "filters": ["tag1", "tag2"],
+      "rationale": "one sentence max 120 chars — why this company specifically, not a generic player",
       "evidence": "one evidence line with source max 80 chars"
     }
   ],
@@ -198,62 +223,81 @@ In all cases: company name, what stage, what happened (max 60 chars), what it pr
     {
       "name": "competitor name",
       "arrEst": "$XM",
-      "targeting": "which segment or motion they are colonising",
+      "targeting": "which segment or motion they are colonising — be specific",
       "threatBy": "Q3 2026",
       "confidence": "H|M|L"
     }
   ],
-  "arrivalSequence": [
+  "diffDurability": [
     {
-      "market": "US|EU|IL|SEA|IN",
-      "format": "the specific product motion, category shift, or competitive format arriving in this company's home market (max 30 chars) — not a company name, a structural shift",
-      "inflection": "Q3 2026 — when this reaches critical mass in the home market, not when it is mainstream in the reference market",
-      "entryMechanism": "HOW it physically arrives — which acquirer/distribution deal/product launch/enterprise relationship is the vehicle (max 55 chars)",
-      "companyResponse": "what THIS company must do specifically before that inflection point — one action (max 50 chars)",
-      "confidence": "H|M|L"
+      "advantage": "Name of the differentiator — e.g. 'Human demographic accuracy'",
+      "durabilityMonths": 0,
+      "durabilityLabel": "Durable|~X mo|X-Y mo — use 'Durable' if >36 months, otherwise est. months",
+      "erodingForce": "One sentence: what is actively eroding this advantage and at what pace",
+      "isUrgent": false
     }
   ],
+  "winningScenario": "Exactly 2 sentences. S1: if all 3 moves land, what does this company look like in 18 months — specific revenue, specific product, specific market position. S2: what is the single hardest thing that must go right for this scenario to happen.",
+  "arrivalSequence": [],
   "globalComps": [
     {
       "market": "US|EU|IL|SEA|IN",
       "company": "comp company name",
-      "stage": "what stage they were at when facing same dynamic",
-      "whatHappened": "one line — outcome (max 60 chars)",
-      "prediction": "one line — what this predicts for [COMPANY] (max 60 chars)",
-      "expansionNote": "EXPAND only: first market entered + motion used (max 50 chars) — blank for DEFEND/DOMESTIC"
+      "stage": "what stage they were at when facing same dynamic (max 40 chars)",
+      "whatHappened": "outcome — one line (max 60 chars)",
+      "prediction": "what this predicts for this company — one line (max 60 chars)",
+      "expansionNote": ""
     }
   ],
-  "internationalPosture": "EXPAND|DEFEND|DOMESTIC — MANDATORY. EXPAND: company has a realistic international expansion play in 18 months (e.g. PLG SaaS with no geographic border, already seeing international signups, or deliberate EMEA/APAC sequencing). DEFEND: company is home-market-focused but international players are arriving in their market and must be responded to. DOMESTIC: company's product, regulatory context, or stage makes international irrelevant in the 18-month window. For Change Research: DOMESTIC. For Clay: EXPAND. For Locket: EXPAND. Be deliberate — do not default to EXPAND.",
-  "page1Summary": "Exactly 2 sentences. S1: the single most important gap in segment coverage or revenue motion right now — which segment is at risk, how large, who is moving in, and what structural right to win this company has that a new entrant cannot replicate. S2: the single competitive or structural constraint that makes this gap urgent NOW — what organisational or capability fact means the window closes if the company does not move in 18 months. DO NOT mention international comps — those are on Page 2. Home market position only. Max 280 chars total. Do not start with company name.",
-  "boldStatement": "One sentence. Max 140 chars. Names the specific segment or motion window, the competitor who will own it if this company does not move, and the timeframe. Urgency without using the word urgency.",
+  "internationalPosture": "EXPAND|DEFEND|DOMESTIC",
+  "page1Summary": "Exactly 2 sentences. S1: the single most important gap right now — which segment is at risk, how large, who is moving in, what right to win this company has. S2: why the window is closing NOW — what makes this urgent in the next 18 months. Home market only. Max 280 chars total.",
+  "boldStatement": "One sentence. Max 140 chars. Names the specific window, the competitor who takes it if this company does not move, and the timeframe.",
   "categoryRead": {
-    "globalTrend": "One sentence: where this category is structurally heading — consolidating, bifurcating, commoditising, platformising. No company names. Max 120 chars.",
-    "leadMarket": "US|EU|IL|SEA — the single market where this structural shift is most advanced",
-    "homeMarketLag": "e.g. 'EU 18 months behind US on enterprise motion' or 'IN 2-3 years behind US on PLG-to-enterprise transition'",
-    "implication": "One sentence: what the structural shift means for this company's window — opening, closing, or already closing. No company names. Max 120 chars."
+    "globalTrend": "One sentence: where this category is structurally heading. No company names. Max 120 chars.",
+    "leadMarket": "US|EU|IL|SEA",
+    "homeMarketLag": "lag description or 'US is lead market'",
+    "implication": "One sentence: what the structural shift means for this company's window. Max 120 chars."
   },
   "sectionHeaders": {
-    "segmentMap": "8 words max — what the segment coverage reveals about this company specifically",
+    "segmentMap": "8 words max — what the coverage map reveals",
     "revenueGaps": "8 words max — the single most important gap pattern",
-    "marketSignals": "8 words max — what home market players are proving that this company hasn't done yet",
-    "competitiveEdge": "8 words max — what the structural or institutional edge is e.g. 'Acquirer enterprise network untapped for this product.'",
+    "marketSignals": "8 words max — what competitors are proving this company hasn't done",
     "radarGap": "8 words max — what the transformation requires"
   }
 }
 <<<END_DATA_BLOCK>>>
 
+
 ## FIELD INSTRUCTIONS — READ BEFORE WRITING DATA BLOCK
 
-**marketSignals**: HOME MARKET ONLY. For each row: name a specific company operating in this company's home market (competitor, challenger, adjacent player) who is doing something in this product category that this company is NOT doing. The company must be real and operating in the home market. The action must be specific and concrete. The evidence must be commercial (ARR, customers, funding, distribution). The implication must tell the founder what to do specifically. Maximum 5 rows. No international players here.
+**kpis**: 4 DERIVED metrics only — computed from combining multiple data points. Never raw ARR or headcount. Each must show a calculation inline. Pick metrics that make Mike pause: cost disadvantage vs competitor, data asset monetisation rate, competitive velocity, cycle decay.
 
-**competitiveEdge**: CONDITIONAL. If acquired or has a strategic investor: pull from Agent 7 the specific assets of the acquirer/investor that are NOT yet activated for this product. CRITICAL EXCLUSION — do NOT include enterprise relationships, distribution channels, or customer network assets unless Agent 7 has specific cited evidence they are not already being used. A company with a strategic investor will already be leveraging obvious relationship assets. Focus ONLY on: technology or IP not yet applied to this product, data assets not yet leveraged, manufacturing or infrastructure capability, regulatory or certification advantage, proprietary research. If standalone: what this company can do faster than any incumbent — speed, community, format experimentation, founder credibility, capital-light iteration. Maximum 3 assets.
+**topChurnDriver**: Name the single most common reason clients leave or pause — not "competition" but the specific behaviour. Election cycle dependency, switching to cheaper tool, dissatisfaction with delivery time. This is what a CEO needs to hear most because it reveals the hidden product-market fit gap.
 
-**arrivalSequence**: PAGE 2 ONLY. CONDITIONAL on internationalPosture:
-- EXPAND: Show both (a) markets this company should enter and the entry sequence — which market first, what motion (PLG self-serve vs enterprise), what comparable companies show about timing; AND (b) international competitors arriving in home market. Frame as: "WHERE TO EXPAND + WHAT'S ARRIVING."
-- DEFEND: Show only international players arriving in home market and what company must do before each inflection. Frame as: "WHAT'S ARRIVING IN YOUR MARKET."
-- DOMESTIC: Leave arrivalSequence as an empty array []. Do NOT populate it just to fill space.
+**strengthsAndDeltas**: 2-3 rows maximum. Only assets that are ACTIVELY WORKING but UNDER-LEVERAGED. Each must have a specific ARR delta with a mechanism. Never include assets that are already fully utilised or already generating subscription revenue.
 
-**page1Summary**: Home market position + structural constraint only. DO NOT mention international comps — those are on Page 2. S1: most important segment or motion gap, how large, who is moving in, what structural right-to-win this company has. S2: the specific capability or organisational constraint that makes this urgent NOW.
+**diffDurability**: 3 rows maximum. One per core differentiator. durabilityMonths must be a genuine estimate — not "forever" for any advantage. isUrgent = true if window < 12 months. erodingForce must name the specific technology or competitor creating the erosion pressure.
+
+**moat**: This is the most important section. Be specific and honest. Durability H = competitor cannot replicate in 24 months. M = 12-18 months. L = already replicable. The breaker must be the SINGLE most plausible threat. The leverage must be the highest-value untapped application — what this company could do with its moat that no one has tried yet.
+
+**strategicTension**: The sentence Mike reads and thinks "that's exactly it." Name the specific metric contradiction and the specific 18-month consequence. Bad: "strong growth faces competition." Good: "250M datapoints generate $0 recurring while Aaru closes accuracy gap at 1/10th cost — the archive becomes stranded in 18 months."
+
+**segmentMap**: Maximum 5 rows. windowMonths = months before a named competitor locks this segment. 0 = already lost. 36+ = no urgency. Be honest about at_risk segments.
+
+**revenueGaps**: Maximum 4 rows. bestPlaced = the competitor most likely to take this gap if the company does not move — name them specifically. windowMonths = months before this gap closes or gets locked. Be aggressive with estimates.
+
+**marketSignals**: Maximum 5 rows. competitorPlay = what that specific competitor is ACTIVELY DOING in this signal space — not what they could do, what they ARE doing with evidence.
+
+**moves**: Exactly 3 moves. companyHas must be honest about existing assets — data, product, relationships, team. companyNeeds must be honest about gaps — if they need to hire an ML engineer, say so. This is what makes the brief credible.
+
+**winningScenario**: Make it specific. Not "becomes a platform" but "$12M ARR with 60% subscription by Q3 2027, Magnify AI SaaS at 120 enterprise seats, Embold at $4M non-partisan revenue." Then name the single hardest thing.
+
+**globalComps**: 3 comps maximum. Pick comps where the outcome teaches something specific — one that won, one that lost, one that took a different path. The prediction must be actionable, not observational.
+
+**page1Summary**: This is the last thing on Page 1. It must land like a punch. Two sentences, no throat-clearing, no "Change Research is a..." opener.
+
+**boldStatement**: The thing Mike will forward to his board. One sentence. Makes the threat and the window concrete.
+
 
 ## AFTER THE DATA BLOCK
 
@@ -840,45 +884,46 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   const boldMatch = raw.match(/BOLD STATEMENT[^\n]*\n([^\n]+)/i);
   const boldStatement = boldMatch ? boldMatch[1].trim().replace(/^\*+|\*+$/g,'') : (db.boldStatement || '');
 
-  const kpis          = Array.isArray(db.kpis)             ? db.kpis             : [];
-  const radarAxes     = Array.isArray(db.radarAxes)        ? db.radarAxes        : [];
-  const segmentMap    = Array.isArray(db.segmentMap)       ? db.segmentMap       : [];
-  const revenueGaps   = Array.isArray(db.revenueGaps)      ? db.revenueGaps      : [];
-  const marketSignals    = Array.isArray(db.marketSignals)      ? db.marketSignals      : [];
-  const arrivalSequence    = Array.isArray(db.arrivalSequence)    ? db.arrivalSequence    : [];
-  const intlPosture        = db.internationalPosture || 'EXPAND'; // default EXPAND to show sections if not set
-  const competitiveEdge  = Array.isArray(db.competitiveEdge)    ? db.competitiveEdge    : [];
-  const moves         = Array.isArray(db.moves)            ? db.moves            : [];
-  const competitors   = Array.isArray(db.competitorThreats)? db.competitorThreats: [];
-  const globalComps   = Array.isArray(db.globalComps)      ? db.globalComps      : [];
-  const categoryRead  = db.categoryRead || null;
-  const sectionHdrs   = db.sectionHeaders || {};
-  const tension       = db.strategicTension || '';
+  const kpis             = Array.isArray(db.kpis)              ? db.kpis              : [];
+  const radarAxes        = Array.isArray(db.radarAxes)         ? db.radarAxes         : [];
+  const segmentMap       = Array.isArray(db.segmentMap)        ? db.segmentMap        : [];
+  const revenueGaps      = Array.isArray(db.revenueGaps)       ? db.revenueGaps       : [];
+  const marketSignals    = Array.isArray(db.marketSignals)     ? db.marketSignals     : [];
+  const arrivalSequence  = Array.isArray(db.arrivalSequence)   ? db.arrivalSequence   : [];
+  const intlPosture      = db.internationalPosture || 'EXPAND';
+  const competitiveEdge  = Array.isArray(db.competitiveEdge)   ? db.competitiveEdge   : [];
+  const moves            = Array.isArray(db.moves)             ? db.moves             : [];
+  const competitors      = Array.isArray(db.competitorThreats) ? db.competitorThreats : [];
+  const globalComps      = Array.isArray(db.globalComps)       ? db.globalComps       : [];
+  const categoryRead     = db.categoryRead || null;
+  const sectionHdrs      = db.sectionHeaders || {};
+  const tension          = db.strategicTension || '';
+  const strengthsDeltas  = Array.isArray(db.strengthsAndDeltas) ? db.strengthsAndDeltas : [];
+  const diffDurability   = Array.isArray(db.diffDurability)    ? db.diffDurability    : [];
+  const topChurnDriver   = db.topChurnDriver || '';
+  const moat             = db.moat || null;
 
   const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
   const subtitleLine = [sector, stage, acquirer ? `Acquirer: ${acquirer}` : null].filter(Boolean).join(' · ');
 
-  // ── COLOUR PALETTE (navy/blue for SaaS) ─────────────────────────────
   const C = {
-    navy:    '#0f1f3d', navyMid: '#1e3a5f',
-    blue:    '#2563eb', blueMid: '#3b82f6', blueLight: '#dbeafe',
-    purple:  '#7c3aed', purpleLight: '#ede9fe',
-    green:   '#059669', amber: '#d97706', red: '#dc2626',
-    ink:     '#1a1a2e', inkMid: '#4a5568', inkFaint: '#9aa5b4',
-    sand:    '#e2e8f0', parchment: '#f8fafc', white: '#ffffff',
+    navy:'#0f1f3d', navyMid:'#1e3a5f',
+    blue:'#2563eb', blueMid:'#3b82f6', blueLight:'#dbeafe',
+    purple:'#7c3aed', purpleLight:'#ede9fe',
+    green:'#059669', amber:'#d97706', red:'#dc2626',
+    ink:'#1a1a2e', inkMid:'#4a5568', inkFaint:'#9aa5b4',
+    sand:'#e2e8f0', parchment:'#f8fafc', white:'#ffffff',
   };
 
-  // Play type config
   const playConfig = {
-    SCALE:     { colour: C.navy,   icon: '⚡', label: 'SCALE',     sub: 'Extend existing motion' },
-    TRANSFORM: { colour: C.purple, icon: '◈', label: 'TRANSFORM', sub: 'New capability required' },
-    DEFEND:    { colour: C.red,    icon: '◇', label: 'DEFEND',    sub: 'Protect before expanding' },
+    SCALE:     { colour:C.navy,   icon:'⚡', label:'SCALE',     sub:'Extend existing motion' },
+    TRANSFORM: { colour:C.purple, icon:'◈', label:'TRANSFORM', sub:'New capability required' },
+    DEFEND:    { colour:C.red,    icon:'◇', label:'DEFEND',    sub:'Protect before expanding' },
   };
   const playShort = { SCALE:'SCL', TRANSFORM:'TRF', DEFEND:'DEF' };
-
   const pageStyle = `width:794px;min-height:1123px;background:#fff;padding:36px;box-sizing:border-box;position:relative;font-family:'Instrument Sans',sans-serif;color:${C.ink};`;
 
-  // ── KPI STRIP ─────────────────────────────────────────────────────────
+  // ── KPI STRIP ──────────────────────────────────────────────────────────
   function renderKPIs(kpis) {
     if (!kpis.length) return '';
     const confCol = k => k.confidence==='H'?C.green:k.confidence==='M'?C.amber:C.red;
@@ -896,16 +941,326 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     return h;
   }
 
-  // ── COMPETITIVE EDGE ─────────────────────────────────────────────────────
-  // ── ARRIVAL SEQUENCE TABLE ─────────────────────────────────────────────
+  // ── TENSION BANNER (with moat + churn driver sub-row) ──────────────────
+  function renderTensionBanner(tension, moat, churnDriver) {
+    if (!tension && !moat) return '';
+    const moatText = moat ? moat.core : '';
+    return `<div style="background:${C.navy};border-radius:4px;padding:12px 16px;margin-bottom:12px;">
+      <div style="font-size:6.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;font-family:monospace;">THE STRATEGIC TENSION</div>
+      <div style="font-size:11px;font-weight:600;color:#fff;line-height:1.6;font-style:italic;">${tension}</div>
+      ${(moatText || churnDriver) ? `
+      <div style="display:grid;grid-template-columns:${moatText && churnDriver ? '1fr 1fr' : '1fr'};gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);">
+        ${moatText ? `<div>
+          <div style="font-size:6px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#93c5fd;margin-bottom:3px;font-family:monospace;">THE MOAT</div>
+          <div style="font-size:7.5px;color:#93c5fd;line-height:1.4;">${moatText}</div>
+        </div>` : ''}
+        ${churnDriver ? `<div>
+          <div style="font-size:6px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#fca5a5;margin-bottom:3px;font-family:monospace;">TOP CHURN DRIVER</div>
+          <div style="font-size:7.5px;color:#fca5a5;line-height:1.4;">${churnDriver}</div>
+        </div>` : ''}
+      </div>` : ''}
+    </div>`;
+  }
+
+  // ── STRENGTHS + DELTAS (asset cards) ───────────────────────────────────
+  function renderStrengthsDeltas(items) {
+    if (!items.length) return '';
+    const cols = Math.min(items.length, 3);
+    let h = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;margin-bottom:12px;">`;
+    items.slice(0,3).forEach(item => {
+      const arr = item.arrDelta || 0;
+      const arrStr = arr > 0 ? `+$${arr}M ARR` : item.delta ? '' : '';
+      h += `<div style="border:1px solid ${C.sand};border-radius:4px;overflow:hidden;">
+        <div style="background:${C.parchment};padding:7px 10px;border-bottom:1px solid ${C.sand};">
+          <div style="font-size:8px;font-weight:800;color:${C.navy};white-space:normal;">${item.asset||''}</div>
+          <div style="font-size:6.5px;color:${C.inkMid};margin-top:2px;line-height:1.3;white-space:normal;">${item.currentState||''}</div>
+        </div>
+        <div style="background:#fff;padding:7px 10px;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="flex:1;height:1px;background:${C.sand};"></div>
+            <span style="font-size:8px;color:${C.green};">▶</span>
+          </div>
+          <div style="background:#f0fdf4;border-radius:3px;padding:5px 7px;">
+            ${arrStr ? `<div style="font-size:12px;font-weight:900;color:${C.green};line-height:1;">${arrStr}</div>` : ''}
+            <div style="font-size:6.5px;color:#166534;line-height:1.3;margin-top:2px;white-space:normal;">${item.delta||''}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+    h += '</div>';
+    return h;
+  }
+
+  // ── GAP VELOCITY TABLE (replaces segment map) ──────────────────────────
+  function renderGapVelocity(segs) {
+    if (!segs.length) return '';
+    const statusCol = { owned:C.green, partial:C.amber, at_risk:C.red };
+    const scCol = { LOW:C.red, MED:C.amber, HIGH:C.green };
+    const scBg  = { LOW:'#fee2e2', MED:'#fef9c3', HIGH:'#dcfce7' };
+    const scTxt = { LOW:'#991b1b', MED:'#854d0e', HIGH:'#166534' };
+    let h = `<table style="width:100%;border-collapse:collapse;font-size:7px;">
+      <thead><tr>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">SEGMENT / GAP</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:right;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">$M TAM</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">STATUS</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">THREAT — WHAT THEY'RE DOING NOW</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">SWITCH COST</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">WINDOW</th>
+      </tr></thead><tbody>`;
+    segs.slice(0,5).forEach((s, i) => {
+      const bg = i%2===0?'#fff':C.parchment;
+      const sc = statusCol[s.status] || C.inkMid;
+      const sl = {owned:'OWNED',partial:'PARTIAL',at_risk:'AT RISK'}[s.status] || s.status;
+      const sw = s.switchingCost || 'MED';
+      const swBg = scBg[sw] || scBg.MED;
+      const swTxt = scTxt[sw] || scTxt.MED;
+      const wm = s.windowMonths || 0;
+      const wmCol = wm > 0 && wm <= 9 ? C.red : wm <= 15 ? C.amber : C.green;
+      const wmPct = wm > 0 ? Math.min((wm/24)*100, 100) : 0;
+      const wmLabel = wm > 0 ? `${wm} mo` : '—';
+      h += `<tr>
+        <td style="padding:5px 8px;background:${bg};font-weight:700;color:${C.navy};white-space:normal;">${s.segment||''}</td>
+        <td style="padding:5px 8px;background:${bg};text-align:right;font-weight:700;">$${s.sizeMr||'—'}M</td>
+        <td style="padding:5px 8px;background:${bg};"><span style="background:${sc}22;color:${sc};font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${sl}</span></td>
+        <td style="padding:5px 8px;background:${bg};font-size:7px;color:${C.inkMid};white-space:normal;">${s.threat||'—'}</td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${swBg};color:${swTxt};font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${sw}</span></td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;">
+          ${wm > 0 ? `<div style="font-size:7px;font-weight:800;color:${wmCol};font-family:monospace;margin-bottom:2px;">${wmLabel}</div>
+          <div style="background:${C.sand};border-radius:2px;height:4px;"><div style="background:${wmCol};width:${wmPct}%;height:4px;border-radius:2px;"></div></div>` : '<span style="color:'+C.inkFaint+';font-size:7px;">—</span>'}
+        </td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ── REVENUE GAP TABLE ──────────────────────────────────────────────────
+  function renderRevenueGaps(gaps) {
+    if (!gaps.length) return '';
+    let h = `<table style="width:100%;border-collapse:collapse;font-size:7.5px;">
+      <thead><tr>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">GAP</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:right;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">ARR GAP</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">PLAY</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">MECHANISM</th>
+        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">CONF</th>
+      </tr></thead><tbody>`;
+    gaps.slice(0,5).forEach((g, i) => {
+      const bg = i%2===0?'#fff':C.parchment;
+      const pc = playConfig[g.playType] || playConfig.SCALE;
+      const ps = playShort[g.playType] || g.playType;
+      const cc = g.confidence==='H'?C.green:g.confidence==='M'?C.amber:C.red;
+      h += `<tr>
+        <td style="padding:5px 8px;background:${bg};border-left:3px solid ${pc.colour};">
+          <div style="font-weight:700;color:${C.navy};font-size:7.5px;white-space:normal;">${g.gap||''}</div>
+        </td>
+        <td style="padding:5px 8px;background:${bg};text-align:right;font-weight:800;font-size:9px;color:${C.navy};">$${g.arrGapM||'—'}M</td>
+        <td style="padding:5px 8px;background:${bg};"><span style="background:${pc.colour};color:#fff;font-size:6px;font-weight:800;padding:2px 4px;border-radius:2px;font-family:monospace;">${ps}</span></td>
+        <td style="padding:5px 8px;background:${bg};font-size:6.5px;color:${C.inkMid};white-space:normal;">${g.mechanism||''}</td>
+        <td style="padding:5px 8px;background:${bg};"><span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;">${g.confidence||'M'}</span></td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ── MARKET SIGNAL TABLE ────────────────────────────────────────────────
+  function renderMarketSignals(signals) {
+    if (!signals.length) return '';
+    const momentumCol = { accelerating:C.green, building:C.blue, mainstream:C.navy, emerging:C.amber, declining:C.red };
+    const momentumW   = { accelerating:90, building:70, mainstream:100, emerging:40, declining:20 };
+    let h = `<table style="width:100%;border-collapse:collapse;font-size:7px;">
+      <thead><tr style="background:${C.navy};color:#fff;">
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:100px;">SIGNAL</th>
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">EVIDENCE</th>
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">WHAT THEY'RE DOING</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:70px;">NOW → 18MO</th>
+        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:40px;">PLAY</th>
+      </tr></thead><tbody>`;
+    signals.slice(0,6).forEach((s, i) => {
+      const bg = i%2===0?'#fff':C.parchment;
+      const nowCol = momentumCol[s.momentum] || C.inkMid;
+      const futCol = momentumCol[s.months18] || C.inkMid;
+      const nowW = momentumW[s.momentum] || 50;
+      const futW = momentumW[s.months18] || 50;
+      const arrow = futW > nowW ? '↑' : futW < nowW ? '↓' : '→';
+      const pc = playConfig[s.playType] || playConfig.SCALE;
+      const ps = playShort[s.playType] || s.playType;
+      h += `<tr>
+        <td style="padding:5px 8px;background:${bg};">
+          <div style="font-weight:700;color:${C.navy};">${s.signal||''}</div>
+          ${s.headroomPct != null ? `<div style="margin-top:3px;background:${C.sand};border-radius:2px;height:3px;"><div style="background:${C.blue};width:${Math.min(s.headroomPct,100)}%;height:3px;border-radius:2px;"></div></div><div style="font-size:6px;color:${C.blue};margin-top:1px;">${s.headroomPct}% headroom</div>` : ''}
+        </td>
+        <td style="padding:5px 8px;background:${bg};color:${C.inkMid};white-space:normal;">${s.evidence||''}</td>
+        <td style="padding:5px 8px;background:${bg};font-size:6.5px;color:${C.inkMid};white-space:normal;">${s.competitorPlay||s.evidence||''}</td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;">
+          <div style="display:flex;align-items:center;gap:3px;">
+            <div style="flex:1;background:${C.sand};border-radius:2px;height:4px;"><div style="background:${nowCol};width:${nowW}%;height:4px;border-radius:2px;"></div></div>
+            <span style="font-size:7px;color:${C.inkFaint};">${arrow}</span>
+            <div style="flex:1;background:${C.sand};border-radius:2px;height:4px;"><div style="background:${futCol};width:${futW}%;height:4px;border-radius:2px;"></div></div>
+          </div>
+          <div style="font-size:6px;color:${futCol};font-weight:700;text-align:center;margin-top:1px;">${s.months18||''}</div>
+        </td>
+        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${pc.colour};color:#fff;font-size:6px;font-weight:800;padding:2px 3px;border-radius:2px;font-family:monospace;">${ps}</span></td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ── RADAR ──────────────────────────────────────────────────────────────
+  function renderRadar(axes) {
+    if (!axes || axes.length < 3) return '<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;">No radar data</div>';
+    const n = axes.length;
+    const CX=130, CY=115, R=85, LABEL_R=108;
+    const toRad = deg => (deg - 90) * Math.PI / 180;
+    const pt = (val, i) => { const a=toRad((360/n)*i); const r=(val/100)*R; return [CX+r*Math.cos(a), CY+r*Math.sin(a)]; };
+    const todayPts = axes.map((a,i) => pt(a.today||0, i));
+    const futurePts = axes.map((a,i) => pt(a.future||0, i));
+    const toPath = pts => pts.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+'Z';
+    let svg = `<svg viewBox="0 0 260 250" xmlns="http://www.w3.org/2000/svg" style="width:260px;height:250px;">`;
+    [20,40,60,80,100].forEach(pct => {
+      const r=(pct/100)*R;
+      const pts2=axes.map((_,i)=>{const a=toRad((360/n)*i);return `${(CX+r*Math.cos(a)).toFixed(1)},${(CY+r*Math.sin(a)).toFixed(1)}`;});
+      svg += `<polygon points="${pts2.join(' ')}" fill="none" stroke="${C.sand}" stroke-width="0.8"/>`;
+    });
+    axes.forEach((_,i)=>{ const [x,y]=pt(100,i); svg += `<line x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${C.sand}" stroke-width="0.8"/>`; });
+    svg += `<path d="${toPath(todayPts)}" fill="${C.navy}25" stroke="${C.navy}" stroke-width="1.5"/>`;
+    svg += `<path d="${toPath(futurePts)}" fill="${C.blue}25" stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+    axes.forEach((ax,i)=>{
+      const angle=toRad((360/n)*i);
+      const lx=CX+LABEL_R*Math.cos(angle); const ly=CY+LABEL_R*Math.sin(angle);
+      const anchor=Math.cos(angle)>0.1?'start':Math.cos(angle)<-0.1?'end':'middle';
+      const label=(ax.axis||'').slice(0,16);
+      const words=label.split(' ');
+      const todayScore=Math.round(ax.today||0); const futureScore=Math.round(ax.future||0);
+      const delta=futureScore-todayScore;
+      const deltaStr=delta>0?`+${delta}`:`${delta}`;
+      const deltaCol=delta>0?C.navy:'#dc2626';
+      const isBottom=Math.sin(angle)>0.5;
+      const yOff=isBottom?8:0;
+      if (words.length>1) {
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly-2+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words[0]}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+7+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words.slice(1).join(' ')}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+16+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
+      } else {
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+3+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${label}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+12+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
+      }
+    });
+    svg += '</svg>';
+    return svg;
+  }
+
+  // ── DIFFERENTIATION DURABILITY ─────────────────────────────────────────
+  function renderDiffDurability(items) {
+    if (!items.length) return '';
+    const urgentCol = { true: C.red, false: C.green };
+    return `<div style="border:1px solid ${C.sand};border-radius:4px;overflow:hidden;">
+      <div style="background:${C.parchment};padding:5px 10px;border-bottom:1px solid ${C.sand};">
+        <div style="font-size:7px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">DIFFERENTIATION DURABILITY</div>
+      </div>` +
+      items.slice(0,3).map(item => {
+        const isUrgent = item.isUrgent === true;
+        const badgeBg  = isUrgent ? '#fee2e2' : item.durabilityLabel === 'Durable' ? '#dcfce7' : '#fef9c3';
+        const badgeTxt = isUrgent ? '#991b1b' : item.durabilityLabel === 'Durable' ? '#166534' : '#854d0e';
+        return `<div style="display:grid;grid-template-columns:1fr auto;align-items:start;gap:8px;padding:7px 10px;border-bottom:1px solid ${C.sand};">
+          <div>
+            <div style="font-size:8px;font-weight:800;color:${C.navy};margin-bottom:2px;">${item.advantage||''}</div>
+            <div style="font-size:6.5px;color:${C.inkMid};line-height:1.3;white-space:normal;">${item.erodingForce||''}</div>
+          </div>
+          <span style="background:${badgeBg};color:${badgeTxt};font-size:7px;font-weight:800;padding:2px 7px;border-radius:3px;white-space:nowrap;font-family:monospace;">${item.durabilityLabel||'—'}</span>
+        </div>`;
+      }).join('') +
+      `<div style="background:${C.parchment};padding:4px 10px;border-top:1px solid ${C.sand};"><div style="font-size:6px;color:${C.inkFaint};font-family:monospace;">GREEN = durable >36 mo · AMBER = eroding · RED = closing <12 mo</div></div>
+    </div>`;
+  }
+
+  // ── MOVE CARDS (with contrarian + companyHas/Needs + pricingNote) ──────
+  function renderMoveCards(moves) {
+    if (!moves.length) return '';
+    const confCol = c => ({CONFIRMED:C.green,DERIVED:C.blue,ESTIMATED:C.amber,'SIGNAL ONLY':C.red})[c]||C.amber;
+    return moves.slice(0,3).map((m,i) => {
+      const pcfg = playConfig[m.playType] || playConfig.SCALE;
+      const conf = m.confidence || 'ESTIMATED';
+      const cc = confCol(conf);
+      const numLabel = ['①','②','③'][i]||`${i+1}`;
+      const filters = Array.isArray(m.filters)?m.filters:[];
+      return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:4px;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:${pcfg.colour};padding:6px 10px;display:flex;align-items:center;gap:6px;">
+          <span style="font-size:7.5px;font-weight:800;color:#fff;letter-spacing:.08em;font-family:monospace;">${pcfg.icon} ${pcfg.label}</span>
+          <span style="font-size:6px;color:rgba(255,255,255,.6);font-style:italic;">${pcfg.sub}</span>
+        </div>
+        <div style="padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:flex-start;gap:6px;">
+            <span style="font-size:13px;color:${pcfg.colour};line-height:1;flex-shrink:0;">${numLabel}</span>
+            <span style="font-size:9px;font-weight:800;color:${C.navy};line-height:1.2;white-space:normal;">${m.title||''}</span>
+          </div>
+          <div style="font-size:6.5px;color:${C.inkMid};font-style:italic;white-space:normal;">${m.segment||''}</div>
+          <div style="display:flex;align-items:baseline;gap:4px;">
+            <span style="font-size:16px;font-weight:900;color:${C.navy};line-height:1;">$${m.arrImpactM||'?'}</span>
+            <span style="font-size:7px;color:${C.inkFaint};">M ARR</span>
+            <span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;margin-left:4px;">${conf}</span>
+          </div>
+          <div style="font-size:7px;color:${C.inkFaint};">First revenue: <strong style="color:${C.navy};">${m.timeToRevenue||'TBD'}</strong></div>
+          ${m.contrarian ? `<div style="font-size:7.5px;color:${C.blue};font-weight:600;line-height:1.4;border-left:2px solid ${C.blue};padding-left:5px;background:${C.blueLight};padding:4px 5px 4px 7px;border-radius:0 3px 3px 0;white-space:normal;">
+            <span style="font-size:6px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.navy};display:block;margin-bottom:2px;font-family:monospace;">THE INSIGHT</span>
+            ${m.contrarian}
+          </div>` : (m.rationale ? `<div style="font-size:7.5px;color:${C.navy};font-weight:600;line-height:1.4;border-left:2px solid ${pcfg.colour};padding-left:5px;white-space:normal;">${m.rationale}</div>` : '')}
+          ${m.pricingNote ? `<div style="font-size:7px;color:${C.purple};background:${C.purpleLight};padding:4px 7px;border-radius:3px;border-left:2px solid ${C.purple};white-space:normal;">
+            <span style="font-size:6px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.purple};display:block;margin-bottom:1px;font-family:monospace;">PRICING FIX</span>
+            ${m.pricingNote}
+          </div>` : ''}
+          ${m.orgInstruction ? `<div style="margin-top:2px;"><div style="font-size:6px;font-weight:800;letter-spacing:.08em;color:${pcfg.colour};margin-bottom:2px;font-family:monospace;">ORG CHANGE</div><div style="font-size:7px;color:${C.inkMid};white-space:normal;">${m.orgInstruction}</div></div>` : ''}
+          ${m.mechanism ? `<div style="font-size:6.5px;color:${C.inkFaint};white-space:normal;"><span style="font-weight:700;color:${C.inkMid};">Motion:</span> ${m.mechanism}</div>` : ''}
+          <div style="font-size:6.5px;color:${C.inkFaint};border-top:1px solid ${C.sand};padding-top:4px;margin-top:auto;white-space:normal;">${m.evidence||''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── GLOBAL COMP STRIP ──────────────────────────────────────────────────
+  function renderGlobalComps(comps) {
+    if (!comps.length) return '';
+    const mktCol = { US:'#1a3a5c', EU:'#1e3a5f', IL:'#7c3aed', SEA:'#059669', IN:'#d97706' };
+    return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
+      comps.slice(0,3).map(c => {
+        const mc = mktCol[c.market] || C.navy;
+        return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${mc};">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
+            <span style="background:${mc};color:#fff;font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${c.market||'?'}</span>
+            <span style="font-size:8px;font-weight:800;color:${C.navy};white-space:normal;">${c.company||''}</span>
+          </div>
+          <div style="font-size:6.5px;color:${C.inkFaint};margin-bottom:3px;">At ${c.stage||'comparable stage'}</div>
+          <div style="font-size:7px;color:${C.inkMid};line-height:1.3;margin-bottom:3px;white-space:normal;">${c.whatHappened||''}</div>
+          ${c.expansionNote ? `<div style="font-size:6.5px;color:${C.green};font-weight:600;margin-bottom:3px;white-space:normal;">↗ ${c.expansionNote}</div>` : ''}
+          <div style="font-size:7px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding-left:5px;white-space:normal;">${c.prediction||''}</div>
+        </div>`;
+      }).join('') + '</div>';
+  }
+
+  // ── COMPETITOR THREATS ─────────────────────────────────────────────────
+  function renderCompetitorThreats(comps) {
+    if (!comps.length) return '';
+    return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
+      comps.slice(0,3).map(c => `
+        <div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${C.red};">
+          <div style="font-size:9px;font-weight:800;color:${C.navy};margin-bottom:3px;white-space:normal;">${c.name||''}</div>
+          <div style="font-size:14px;font-weight:900;color:${C.red};margin-bottom:3px;line-height:1;">${c.arrEst||'?'}</div>
+          <div style="font-size:7px;color:${C.inkMid};margin-bottom:2px;line-height:1.3;white-space:normal;">Targeting: ${c.targeting||''}</div>
+          <div style="font-size:7px;color:${C.inkFaint};">Threat by: <strong style="color:${C.red};">${c.threatBy||'TBD'}</strong></div>
+        </div>`).join('') + '</div>';
+  }
+
+  // ── ARRIVAL SEQUENCE ───────────────────────────────────────────────────
   function renderArrivalSequence(seq) {
     if (!seq.length) return '';
     const mktCol = { US:'#1a3a5c', EU:'#1e3a5f', IL:'#7c3aed', SEA:'#059669', IN:'#d97706' };
-    const confCol = { H: C.navy, M: C.amber, L: '#bbb' };
+    const confCol = { H:C.navy, M:C.amber, L:'#bbb' };
     let h = `<table style="width:100%;border-collapse:collapse;font-size:7px;">
       <thead><tr style="background:${C.navy};color:#fff;">
         <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;width:35px;font-family:monospace;">MKT</th>
-        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;width:120px;font-family:monospace;">SHIFT ARRIVING</th>
+        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">SHIFT ARRIVING</th>
         <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;width:65px;font-family:monospace;">BY</th>
         <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">HOW IT ENTERS</th>
         <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">COMPANY MUST DO</th>
@@ -928,9 +1283,10 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     return h;
   }
 
+  // ── COMPETITIVE EDGE ───────────────────────────────────────────────────
   function renderCompetitiveEdge(assets) {
     if (!assets.length) return '';
-    const statusCol = { untapped: C.red, partial: C.amber };
+    const statusCol = { untapped:C.red, partial:C.amber };
     return `<div style="display:grid;grid-template-columns:repeat(${Math.min(assets.length,3)},1fr);gap:8px;">` +
       assets.slice(0,3).map(a => {
         const sc = statusCol[a.status] || C.amber;
@@ -945,260 +1301,8 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       }).join('') + '</div>';
   }
 
-  // ── SEGMENT COVERAGE MAP (replaces occasion wheel — table format) ──────
-  function renderSegmentMap(segs) {
-    if (!segs.length) return '';
-    const statusCol = { owned: C.green, partial: C.amber, at_risk: C.red };
-    const statusLabel = { owned: 'OWNED', partial: 'PARTIAL', at_risk: 'AT RISK' };
-    let h = `<table style="width:100%;border-collapse:collapse;font-size:7.5px;">
-      <thead><tr>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">SEGMENT</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:right;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">$M TAM</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">STATUS</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">THREAT / OWNER</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">GROWTH</th>
-      </tr></thead><tbody>`;
-    segs.forEach((s, i) => {
-      const bg = i % 2 === 0 ? '#fff' : C.parchment;
-      const sc = statusCol[s.status] || C.inkMid;
-      const sl = statusLabel[s.status] || s.status;
-      const gc = s.growth === 'high' ? C.green : s.growth === 'medium' ? C.amber : C.inkFaint;
-      h += `<tr>
-        <td style="padding:5px 8px;background:${bg};font-weight:700;color:${C.navy};white-space:normal;">${s.segment||''}</td>
-        <td style="padding:5px 8px;background:${bg};text-align:right;font-weight:700;">$${s.sizeMr||'—'}M</td>
-        <td style="padding:5px 8px;background:${bg};"><span style="background:${sc}22;color:${sc};font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${sl}</span></td>
-        <td style="padding:5px 8px;background:${bg};font-size:7px;color:${C.inkMid};white-space:normal;">${s.threat||'—'}</td>
-        <td style="padding:5px 8px;background:${bg};"><span style="color:${gc};font-size:7px;font-weight:700;">${(s.growth||'').toUpperCase()}</span></td>
-      </tr>`;
-    });
-    h += '</tbody></table>';
-    return h;
-  }
-
-  // ── REVENUE GAP TABLE ───────────────────────────────────────────────────
-  function renderRevenueGaps(gaps) {
-    if (!gaps.length) return '';
-    let h = `<table style="width:100%;border-collapse:collapse;font-size:7.5px;">
-      <thead><tr>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">GAP</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;text-align:right;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">ARR GAP</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">PLAY</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">MECHANISM</th>
-        <th style="background:${C.navy};color:#fff;padding:5px 8px;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">CONF</th>
-      </tr></thead><tbody>`;
-    gaps.slice(0,5).forEach((g, i) => {
-      const bg = i % 2 === 0 ? '#fff' : C.parchment;
-      const pc = playConfig[g.playType] || playConfig.SCALE;
-      const ps = playShort[g.playType] || g.playType;
-      const cc = g.confidence==='H'?C.green:g.confidence==='M'?C.amber:C.red;
-      h += `<tr>
-        <td style="padding:5px 8px;background:${bg};border-left:3px solid ${pc.colour};">
-          <div style="font-weight:700;color:${C.navy};font-size:7.5px;white-space:normal;">${g.gap||''}</div>
-          <div style="font-size:6px;color:${C.inkFaint};margin-top:1px;">${g.currentMotion||''}</div>
-        </td>
-        <td style="padding:5px 8px;background:${bg};text-align:right;font-weight:800;font-size:9px;color:${C.navy};">$${g.arrGapM||'—'}M</td>
-        <td style="padding:5px 8px;background:${bg};"><span style="background:${pc.colour};color:#fff;font-size:6px;font-weight:800;padding:2px 4px;border-radius:2px;font-family:monospace;">${ps}</span></td>
-        <td style="padding:5px 8px;background:${bg};font-size:6.5px;color:${C.inkMid};white-space:normal;">${g.mechanism||''}</td>
-        <td style="padding:5px 8px;background:${bg};"><span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;">${g.confidence||'M'}</span></td>
-      </tr>`;
-    });
-    h += '</tbody></table>';
-    return h;
-  }
-
-  // ── MARKET SIGNAL TABLE (mirrors consumer trend table) ─────────────────
-  function renderMarketSignals(signals) {
-    if (!signals.length) return '';
-    const momentumCol = { accelerating: C.green, building: C.blue, mainstream: C.navy, emerging: C.amber, declining: C.red };
-    const momentumW = { accelerating:90, building:70, mainstream:100, emerging:40, declining:20 };
-    let h = `<table style="width:100%;border-collapse:collapse;font-size:7px;">
-      <thead><tr style="background:${C.navy};color:#fff;">
-        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:110px;">SIGNAL</th>
-        <th style="padding:5px 8px;text-align:left;font-size:6.5px;letter-spacing:.06em;font-family:monospace;">EVIDENCE</th>
-        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:80px;">NOW</th>
-        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:80px;">18MO</th>
-        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:40px;">MKT</th>
-        <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:50px;">PLAY</th>
-      </tr></thead><tbody>`;
-    signals.slice(0,6).forEach((s, i) => {
-      const bg = i%2===0?'#fff':C.parchment;
-      const nowCol = momentumCol[s.momentum] || C.inkMid;
-      const futCol = momentumCol[s.months18] || C.inkMid;
-      const nowW = momentumW[s.momentum] || 50;
-      const futW = momentumW[s.months18] || 50;
-      const arrow = futW > nowW ? '↑' : futW < nowW ? '↓' : '→';
-      const pc = playConfig[s.playType] || playConfig.SCALE;
-      const ps = playShort[s.playType] || s.playType;
-      const mktCol = { US:'#1a3a5c', EU:'#1e3a5f', IL:'#2563eb', SEA:'#059669', IN:'#d97706' };
-      const mc = mktCol[s.sourceMarket] || C.navy;
-      h += `<tr>
-        <td style="padding:5px 8px;background:${bg};">
-          <div style="font-weight:700;color:${C.navy};">${s.signal||''}</div>
-          ${s.headroomPct != null ? `<div style="margin-top:3px;background:${C.sand};border-radius:2px;height:3px;"><div style="background:${C.blue};width:${Math.min(s.headroomPct,100)}%;height:3px;border-radius:2px;"></div></div><div style="font-size:6px;color:${C.blue};margin-top:1px;">${s.headroomPct}% headroom</div>` : ''}
-        </td>
-        <td style="padding:5px 8px;background:${bg};color:${C.inkMid};white-space:normal;">${s.evidence||''}</td>
-        <td style="padding:5px 8px;background:${bg};text-align:center;">
-          <div style="background:${C.sand};border-radius:2px;height:4px;margin-bottom:2px;"><div style="background:${nowCol};width:${nowW}%;height:4px;border-radius:2px;"></div></div>
-          <div style="font-size:6px;color:${nowCol};font-weight:700;text-transform:uppercase;">${s.momentum||''}</div>
-        </td>
-        <td style="padding:5px 8px;background:${bg};text-align:center;">
-          <div style="background:${C.sand};border-radius:2px;height:4px;margin-bottom:2px;"><div style="background:${futCol};width:${futW}%;height:4px;border-radius:2px;"></div></div>
-          <div style="font-size:6px;color:${futCol};font-weight:700;">${arrow} ${s.months18||''}</div>
-        </td>
-        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${mc};color:#fff;font-size:6px;font-weight:800;padding:2px 4px;border-radius:2px;font-family:monospace;">${s.sourceMarket||''}</span></td>
-        <td style="padding:5px 8px;background:${bg};text-align:center;"><span style="background:${pc.colour};color:#fff;font-size:6px;font-weight:800;padding:2px 3px;border-radius:2px;font-family:monospace;">${ps}</span></td>
-      </tr>`;
-    });
-    h += '</tbody></table>';
-    return h;
-  }
-
-  // ── RADAR ────────────────────────────────────────────────────────────────
-  function renderRadar(axes) {
-    if (!axes || axes.length < 3) return '<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;">No radar data</div>';
-    const n = axes.length;
-    const CX=130, CY=115, R=85, LABEL_R=108;
-    const toRad = deg => (deg - 90) * Math.PI / 180;
-    const pt = (val, i) => {
-      const angle = toRad((360/n)*i);
-      const r = (val/100)*R;
-      return [CX + r*Math.cos(angle), CY + r*Math.sin(angle)];
-    };
-    const todayPts = axes.map((a,i) => pt(a.today||0, i));
-    const futurePts = axes.map((a,i) => pt(a.future||0, i));
-    const toPath = pts => pts.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+'Z';
-    let svg = `<svg viewBox="0 0 260 250" xmlns="http://www.w3.org/2000/svg" style="width:260px;height:250px;">`;
-    [20,40,60,80,100].forEach(pct => {
-      const r = (pct/100)*R;
-      const pts2 = axes.map((_,i)=>{const a=toRad((360/n)*i);return `${(CX+r*Math.cos(a)).toFixed(1)},${(CY+r*Math.sin(a)).toFixed(1)}`;});
-      svg += `<polygon points="${pts2.join(' ')}" fill="none" stroke="${C.sand}" stroke-width="0.8"/>`;
-    });
-    axes.forEach((_,i)=>{
-      const [x,y]=pt(100,i);
-      svg += `<line x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${C.sand}" stroke-width="0.8"/>`;
-    });
-    svg += `<path d="${toPath(todayPts)}" fill="${C.navy}25" stroke="${C.navy}" stroke-width="1.5"/>`;
-    svg += `<path d="${toPath(futurePts)}" fill="${C.blue}25" stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="4,2"/>`;
-    axes.forEach((ax,i)=>{
-      const angle = toRad((360/n)*i);
-      const lx = CX + LABEL_R*Math.cos(angle);
-      const ly = CY + LABEL_R*Math.sin(angle);
-      const anchor = Math.cos(angle)>0.1?'start':Math.cos(angle)<-0.1?'end':'middle';
-      const label = (ax.axis||'').slice(0,16);
-      const words = label.split(' ');
-      const todayScore  = Math.round(ax.today||0);
-      const futureScore = Math.round(ax.future||0);
-      const delta = futureScore - todayScore;
-      const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
-      const deltaCol = delta > 0 ? C.navy : '#dc2626';
-      // Bottom-pointing axes: extra yOff so score clears viewBox
-      const isBottom = Math.sin(angle * Math.PI / 180) > 0.6;
-      const yOff = isBottom ? 8 : 0;
-      if (words.length > 1) {
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly - 2 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words[0]}</text>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 7 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words.slice(1).join(' ')}</text>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 16 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
-      } else {
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 3 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${label}</text>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly + 12 + yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
-      }
-    });
-    svg += '</svg>';
-    return svg;
-  }
-
-  // ── MOVE CARDS ───────────────────────────────────────────────────────────
-  function renderMoveCards(moves) {
-    if (!moves.length) return '';
-    const confCol = c => ({CONFIRMED:C.green,DERIVED:C.blue,ESTIMATED:C.amber,'SIGNAL ONLY':C.red})[c]||C.amber;
-    const filterLabels = { A:'₹×Speed', B:'Gap×Right', C:'Trend-Timed' };
-    const filterColour = { A:C.green, B:C.blue, C:C.purple };
-    return moves.slice(0,3).map((m,i) => {
-      const pcfg = playConfig[m.playType] || playConfig.SCALE;
-      const conf = m.confidence || 'ESTIMATED';
-      const cc = confCol(conf);
-      const numLabel = ['①','②','③'][i]||`${i+1}`;
-      const filters = Array.isArray(m.filters)?m.filters:[];
-      const orgInstr = m.orgInstruction||'';
-      const scaling = m.mechanism||'';
-      return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:4px;overflow:hidden;display:flex;flex-direction:column;">
-        <div style="background:${pcfg.colour};padding:6px 10px;display:flex;align-items:center;gap:6px;">
-          <span style="font-size:7.5px;font-weight:800;color:#fff;letter-spacing:.08em;font-family:monospace;">${pcfg.icon} ${pcfg.label}</span>
-          <span style="font-size:6px;color:rgba(255,255,255,.6);font-style:italic;">${pcfg.sub}</span>
-        </div>
-        <div style="padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:4px;">
-          <div style="display:flex;align-items:flex-start;gap:6px;">
-            <span style="font-size:13px;color:${pcfg.colour};line-height:1;flex-shrink:0;">${numLabel}</span>
-            <span style="font-size:9px;font-weight:800;color:${C.navy};line-height:1.2;white-space:normal;">${m.title||''}</span>
-          </div>
-          <div style="font-size:6.5px;color:${C.inkMid};font-style:italic;white-space:normal;">${m.segment||''}</div>
-          <div style="display:flex;align-items:baseline;gap:4px;">
-            <span style="font-size:16px;font-weight:900;color:${C.navy};line-height:1;">$${m.arrImpactM||'?'}</span>
-            <span style="font-size:7px;color:${C.inkFaint};">M ARR</span>
-            <span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;margin-left:4px;">${conf}</span>
-          </div>
-          <div style="font-size:7px;color:${C.inkFaint};">First revenue: <strong style="color:${C.navy};">${m.timeToRevenue||'TBD'}</strong></div>
-          <div style="font-size:7.5px;color:${C.navy};font-weight:600;line-height:1.4;border-left:2px solid ${pcfg.colour};padding-left:5px;white-space:normal;">${m.rationale||''}</div>
-          ${orgInstr ? `<div style="margin-top:3px;"><div style="font-size:6px;font-weight:800;letter-spacing:.08em;color:${pcfg.colour};margin-bottom:2px;font-family:monospace;">ORG CHANGE</div><div style="font-size:7px;color:${C.inkMid};white-space:normal;">${orgInstr}</div></div>` : ''}
-          ${scaling ? `<div style="font-size:6.5px;color:${C.inkFaint};white-space:normal;"><span style="font-weight:700;color:${C.inkMid};">Motion:</span> ${scaling}</div>` : ''}
-          <div style="font-size:6.5px;color:${C.inkFaint};border-top:1px solid ${C.sand};padding-top:4px;margin-top:auto;white-space:normal;">${m.evidence||''}</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;">
-            ${filters.map(f=>`<span style="background:${filterColour[f]||C.navy}22;color:${filterColour[f]||C.navy};border:1px solid ${filterColour[f]||C.navy}55;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;font-family:monospace;">${filterLabels[f]||f}</span>`).join('')}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  // ── GLOBAL COMP STRIP ────────────────────────────────────────────────────
-  function renderGlobalComps(comps) {
-    if (!comps.length) return '';
-    const mktCol = { US:'#1a3a5c', EU:'#1e3a5f', IL:'#7c3aed', SEA:'#059669', IN:'#d97706' };
-    return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
-      comps.slice(0,3).map(c => {
-        const mc = mktCol[c.market] || C.navy;
-        return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${mc};">
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
-            <span style="background:${mc};color:#fff;font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${c.market||'?'}</span>
-            <span style="font-size:8px;font-weight:800;color:${C.navy};white-space:normal;">${c.company||''}</span>
-          </div>
-          <div style="font-size:6.5px;color:${C.inkFaint};margin-bottom:3px;">At ${c.stage||'comparable stage'}</div>
-          <div style="font-size:7px;color:${C.inkMid};line-height:1.3;margin-bottom:3px;white-space:normal;">${c.whatHappened||''}</div>
-          ${c.expansionNote ? `<div style="font-size:6.5px;color:${C.green};font-weight:600;margin-bottom:3px;white-space:normal;">↗ ${c.expansionNote}</div>` : ''}
-          <div style="font-size:7px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding-left:5px;white-space:normal;">${c.prediction||''}</div>
-        </div>`;
-      }).join('') + '</div>';
-  }
-
-  // ── COMPETITOR THREAT TIMELINE ───────────────────────────────────────────
-  function renderCompetitorThreats(comps) {
-    if (!comps.length) return '';
-    return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
-      comps.slice(0,3).map(c => `
-        <div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${C.red};">
-          <div style="font-size:9px;font-weight:800;color:${C.navy};margin-bottom:3px;white-space:normal;">${c.name||''}</div>
-          <div style="font-size:14px;font-weight:900;color:${C.red};margin-bottom:3px;line-height:1;">${c.arrEst||'?'}</div>
-          <div style="font-size:7px;color:${C.inkMid};margin-bottom:2px;line-height:1.3;white-space:normal;">Targeting: ${c.targeting||''}</div>
-          <div style="font-size:7px;color:${C.inkFaint};">Threat by: <strong style="color:${C.red};">${c.threatBy||'TBD'}</strong></div>
-        </div>`).join('') + '</div>';
-  }
-
-  // ── ASSEMBLE PAGES ───────────────────────────────────────────────────────
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=Instrument+Sans:wght@400;600;700;800&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet"/>
-<style>
-  @page { size: A4; margin: 0; }
-  body { margin: 0; padding: 0; }
-  .page { page-break-after: always; }
-  .page:last-child { page-break-after: auto; }
-</style>
-</head><body>
-
-<!-- PAGE 1 -->
-<div class="page" style="${pageStyle}">
-
-  <!-- Header -->
+  // ── ASSEMBLE PAGE 1 ────────────────────────────────────────────────────
+  const page1 = `<div class="page" style="${pageStyle}">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid ${C.navy};">
     <div>
       <div style="font-size:8px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:${C.blue};margin-bottom:4px;font-family:monospace;">OPPORTUNITY BRIEF</div>
@@ -1206,24 +1310,29 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       <div style="font-size:9px;color:${C.inkFaint};margin-top:3px;">${subtitleLine}</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(15,31,61,.18);line-height:1.2;font-family:monospace;">AdvisorSprint</div>
-      <div style="font-size:7.5px;color:rgba(15,31,61,.18);letter-spacing:.04em;margin-top:2px;">Harsha Belavady</div>
+      <div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(15,31,61,.18);font-family:monospace;">AdvisorSprint</div>
+      <div style="font-size:7.5px;color:rgba(15,31,61,.18);margin-top:2px;">Harsha Belavady</div>
     </div>
   </div>
 
-  <!-- KPI Strip -->
   ${renderKPIs(kpis)}
 
-  <!-- Segment Coverage Map -->
+  ${renderTensionBanner(tension, moat, topChurnDriver)}
+
+  ${strengthsDeltas.length ? `
+  <div style="margin-bottom:12px;">
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:6px;font-family:monospace;">WHAT'S WORKING — AND WHAT DOUBLING DOWN UNLOCKS</div>
+    ${renderStrengthsDeltas(strengthsDeltas)}
+  </div>` : ''}
+
   <div style="margin-bottom:12px;">
     <div style="margin-bottom:6px;">
-      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">SEGMENT COVERAGE MAP</div>
+      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">GAP VELOCITY — HOW FAST EACH GAP IS CLOSING AND WHO IS CLOSING IT</div>
       ${sectionHdrs.segmentMap ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.segmentMap}</div>` : ''}
     </div>
-    ${renderSegmentMap(segmentMap)}
+    ${renderGapVelocity(segmentMap)}
   </div>
 
-  <!-- Revenue Gap Table -->
   <div style="margin-bottom:12px;">
     <div style="margin-bottom:6px;">
       <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">REVENUE GAP ANALYSIS</div>
@@ -1232,7 +1341,6 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     ${renderRevenueGaps(revenueGaps)}
   </div>
 
-  <!-- What The Market Is Telling You — home market competitors/challengers -->
   <div style="margin-bottom:10px;">
     <div style="margin-bottom:6px;">
       <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">WHAT THE MARKET IS TELLING YOU</div>
@@ -1241,17 +1349,12 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     ${renderMarketSignals(marketSignals)}
   </div>
 
-  <!-- Competitive Edge — acquirer/investor assets or standalone structural advantage -->
   ${competitiveEdge.length ? `
   <div style="margin-bottom:10px;">
-    <div style="margin-bottom:6px;">
-      <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">${companyMode === 'acquired' ? 'ACQUIRER EDGE NOT DEPLOYED' : 'STRUCTURAL ADVANTAGE'}</div>
-      ${sectionHdrs.competitiveEdge ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.competitiveEdge}</div>` : ''}
-    </div>
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:6px;font-family:monospace;">${companyMode==='acquired'?'ACQUIRER EDGE NOT DEPLOYED':'STRUCTURAL ADVANTAGE'}</div>
     ${renderCompetitiveEdge(competitiveEdge)}
   </div>` : ''}
 
-  <!-- Page 1 → Page 2 transition -->
   ${db.page1Summary ? `
   <div style="background:${C.blueLight};border-radius:3px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px;">
     <div style="flex:1;">
@@ -1265,17 +1368,14 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     </div>
   </div>` : ''}
 
-  <!-- Footer -->
   <div style="position:absolute;bottom:18px;left:36px;right:36px;display:flex;justify-content:space-between;align-items:center;">
     <div style="font-size:6.5px;color:${C.inkFaint};letter-spacing:.06em;font-family:monospace;">ADVISORSPRINT INTELLIGENCE · CONFIDENTIAL</div>
     <div style="font-size:6.5px;color:${C.inkFaint};font-family:monospace;">PAGE 1 OF 2</div>
   </div>
-</div>
+</div>`;
 
-<!-- PAGE 2 -->
-<div class="page" style="${pageStyle}">
-
-  <!-- Header -->
+  // ── ASSEMBLE PAGE 2 ────────────────────────────────────────────────────
+  const page2 = `<div class="page" style="${pageStyle}">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid ${C.sand};">
     <div>
       <div style="font-size:8px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:${C.blue};font-family:monospace;">WHERE TO PLAY · HOW TO WIN</div>
@@ -1285,21 +1385,16 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       <span style="background:${C.navy};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">⚡ SCALE</span>
       <span style="background:${C.purple};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">◈ TRANSFORM</span>
       <span style="background:${C.red};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">◇ DEFEND</span>
-      <span style="background:${intlPosture==='EXPAND'?C.green:intlPosture==='DEFEND'?C.amber:'#6b7280'};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">
-        ${intlPosture==='EXPAND'?'↗ EXPAND':intlPosture==='DEFEND'?'⚠ DEFEND MARKET':'◎ DOMESTIC'}
-      </span>
+      <span style="background:${intlPosture==='EXPAND'?C.green:intlPosture==='DEFEND'?C.amber:'#6b7280'};color:#fff;font-size:6px;font-weight:800;padding:2px 6px;border-radius:2px;font-family:monospace;">${intlPosture==='EXPAND'?'↗ EXPAND':intlPosture==='DEFEND'?'⚠ DEFEND MARKET':'◎ DOMESTIC'}</span>
       <div style="font-size:6.5px;color:${C.inkFaint};font-family:monospace;margin-left:4px;">PAGE 2 OF 2</div>
     </div>
   </div>
 
-  <!-- Strategic Tension — top of page 2, frames everything -->
-  ${tension ? `
-  <div style="background:${C.navy};border-radius:4px;padding:12px 16px;margin-bottom:14px;">
+  ${tension ? `<div style="background:${C.navy};border-radius:4px;padding:12px 16px;margin-bottom:14px;">
     <div style="font-size:6.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;font-family:monospace;">THE STRATEGIC TENSION</div>
     <div style="font-size:11px;font-weight:600;color:#fff;line-height:1.6;font-style:italic;">${tension}</div>
   </div>` : ''}
 
-  <!-- Radar + Move Cards -->
   <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:14px;">
     <div>
       <div style="margin-bottom:6px;">
@@ -1317,6 +1412,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
         </div>
       </div>
       ${renderRadar(radarAxes)}
+      ${diffDurability.length ? `<div style="margin-top:10px;">${renderDiffDurability(diffDurability)}</div>` : ''}
     </div>
     <div>
       <div style="margin-bottom:6px;">
@@ -1329,9 +1425,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     </div>
   </div>
 
-  <!-- Category Read — global structural context, sits above comp signals -->
-  ${categoryRead ? `
-  <div style="display:grid;grid-template-columns:1fr 90px 110px;gap:0;background:#fff;border:1px solid ${C.sand};border-left:3px solid ${C.blue};border-radius:0 3px 3px 0;padding:7px 12px;margin-bottom:10px;align-items:center;">
+  ${categoryRead ? `<div style="display:grid;grid-template-columns:1fr 90px 110px;gap:0;background:#fff;border:1px solid ${C.sand};border-left:3px solid ${C.blue};border-radius:0 3px 3px 0;padding:7px 12px;margin-bottom:10px;align-items:center;">
     <div>
       <div style="font-size:6px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:3px;font-family:monospace;">GLOBAL CATEGORY CONTEXT</div>
       <div style="font-size:7px;color:${C.navy};line-height:1.4;font-weight:600;">${categoryRead.globalTrend||''}</div>
@@ -1347,56 +1441,50 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     </div>
   </div>` : ''}
 
-  <!-- International section — posture-aware rendering -->
-  ${intlPosture !== 'DOMESTIC' && arrivalSequence.length ? `
-
-  <!-- Country legend — only shown when arrival sequence is present -->
-  <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;padding:4px 8px;background:${C.parchment};border-radius:3px;flex-wrap:wrap;">
-    <span style="font-size:6px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:${C.inkFaint};margin-right:4px;font-family:monospace;">MARKETS</span>
-    ${[['US','United States'],['EU','Europe'],['IL','Israel'],['SEA','SE Asia'],['IN','India'],['UK','UK'],['AU','Australia']].map(([code,name]) =>
-      `<span style="font-size:6.5px;color:${C.inkMid};font-weight:600;"><span style="background:${C.navy};color:#fff;font-size:5.5px;font-weight:800;padding:1px 4px;border-radius:2px;margin-right:3px;font-family:monospace;">${code}</span>${name}</span>`
-    ).join('')}
-  </div>
-
+  ${intlPosture!=='DOMESTIC'&&arrivalSequence.length ? `
   <div style="margin-bottom:12px;">
-    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.navy};font-family:monospace;">
-      ${intlPosture === 'EXPAND' ? 'INTERNATIONAL EXPANSION SEQUENCE' : 'INTERNATIONAL ARRIVAL THREATS'}
-    </div>
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.navy};font-family:monospace;">${intlPosture==='EXPAND'?'INTERNATIONAL EXPANSION SEQUENCE':'INTERNATIONAL ARRIVAL THREATS'}</div>
     ${renderArrivalSequence(arrivalSequence)}
   </div>` : ''}
 
-  <!-- Global Comp Signal — always shown, header adapts to posture -->
   ${globalComps.length ? `
   <div style="margin-bottom:12px;">
-    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.blue};font-family:monospace;">
-      ${intlPosture === 'DOMESTIC' ? 'COMPARABLE TRAJECTORIES — STRATEGIC MIRRORS' : 'GLOBAL COMP SIGNAL — PATTERN MATCH'}
-    </div>
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.blue};font-family:monospace;">${intlPosture==='DOMESTIC'?'COMPARABLE TRAJECTORIES — STRATEGIC MIRRORS':'GLOBAL COMP SIGNAL — PATTERN MATCH'}</div>
     ${renderGlobalComps(globalComps)}
   </div>` : ''}
 
-  <!-- Competitor Threat Timeline -->
   ${competitors.length ? `
   <div style="margin-bottom:12px;">
     <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.red};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.red};font-family:monospace;">IF YOU DON'T MOVE — THEY WILL</div>
     ${renderCompetitorThreats(competitors)}
   </div>` : ''}
 
-  <!-- Bold Statement — always last -->
-  ${boldStatement ? `
-  <div style="background:${C.navy};border-radius:4px;padding:16px 20px;margin-bottom:14px;">
+  ${boldStatement ? `<div style="background:${C.navy};border-radius:4px;padding:16px 20px;margin-bottom:14px;">
     <div style="font-size:7.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:8px;font-family:monospace;">THE VERDICT</div>
     <div style="font-size:${boldStatement.length>100?'11':'13'}px;font-weight:700;color:#fff;line-height:1.5;font-style:italic;">${boldStatement}</div>
   </div>` : ''}
 
-  <!-- Footer -->
   <div style="position:absolute;bottom:18px;left:36px;right:36px;display:flex;justify-content:space-between;align-items:center;">
     <div style="font-size:6.5px;color:${C.inkFaint};letter-spacing:.06em;font-family:monospace;">ADVISORSPRINT INTELLIGENCE · CONFIDENTIAL · FOR INTERNAL USE ONLY</div>
     <div style="font-size:6.5px;color:${C.inkFaint};font-family:monospace;">NUMBERS MARKED ESTIMATED/SIGNAL ONLY ARE DIRECTIONAL — VERIFY BEFORE PRESENTING</div>
   </div>
-</div>
+</div>`;
 
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=Instrument+Sans:wght@400;600;700;800&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+  @page { size: A4; margin: 0; }
+  body { margin: 0; padding: 0; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+</style>
+</head><body>
+${page1}
+${page2}
 </body></html>`;
 }
+
 
 // ── PDF HTML BUILDER ────────────────────────────────────────────────────────
 function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlocks, sources, elapsed }) {
