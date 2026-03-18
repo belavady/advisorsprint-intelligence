@@ -309,8 +309,14 @@ function makeSaaSPrompt(id, company, acquirer, ctx, synthCtx) {
     prompt += priorContext;
   }
 
-  // Agent-specific mandate appended by server.js via SAAS_PROMPTS
-  // Here we just pass company name as a marker so server knows which agent to inject
+  // For brief: prepend the full SAAS_BRIEF_PROMPT so server receives complete instructions
+  // Server passes cleanedUserContext directly for brief — so prompt must include everything
+  if (id === 'brief') {
+    return SAAS_BRIEF_PROMPT + '\n\n' + prompt;
+  }
+
+  // For all other agents: server injects agent prompt via SAAS_PROMPTS
+  // Just pass company/agent marker so server knows which prompt to inject
   prompt += `\nCOMPANY: ${company}\nAGENT_ID: ${id}`;
 
   return prompt;
