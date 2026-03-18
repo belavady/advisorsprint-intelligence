@@ -779,6 +779,7 @@ function renderSynopsisSaaS(db) {
   let h = '';
   // 9-agent verdict grid
   if (db.agentVerdicts && db.agentVerdicts.length) {
+    h += `<div style="break-inside:avoid;page-break-inside:avoid;">`;
     h += sectionLabel('9-Agent Verdict Dashboard');
     const vColors = { STRONG:'#059669', WATCH:'#d97706', OPTIMISE:'#2563eb', UNDERDELIVERED:'#dc2626', RISK:'#dc2626' };
     h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px;">`;
@@ -790,6 +791,7 @@ function renderSynopsisSaaS(db) {
         <div style="font-size:6.5px;color:${V.inkMid};line-height:1.4;">${a.oneLiner}</div>
       </div>`;
     });
+    h += '</div>';
     h += '</div>';
   }
   // Top actions
@@ -1583,48 +1585,7 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
   </div>
 </div>
 `
-  // Verdict Matrix page — built from verdictRow in each agent's DATA_BLOCK
-  const vColors = { STRONG:'#059669', WATCH:'#d97706', OPTIMISE:'#2563eb', UNDERDELIVERED:'#dc2626', RISK:'#dc2626' };
-  const vBg    = { STRONG:'#ecfdf5', WATCH:'#fffbeb', OPTIMISE:'#eff6ff', UNDERDELIVERED:'#fef2f2', RISK:'#fef2f2' };
-  const vLabel = { STRONG:'● STRONG', WATCH:'◐ WATCH', OPTIMISE:'◈ OPTIMISE', UNDERDELIVERED:'▲ UNDERDELIVERED', RISK:'▲ RISK' };
-  const matrixRows = agentPages.map(ag => {
-    const db = dataBlocks[ag.id];
-    if (!db || !db.verdictRow) return null;
-    const v = db.verdictRow;
-    const vc = vColors[v.verdict] || '#888';
-    const vb = vBg[v.verdict] || '#f8f8f8';
-    const vl = vLabel[v.verdict] || v.verdict;
-    return `<tr>
-      <td style="padding:7px 10px;font-weight:700;color:#0f1f3d;font-size:9px;border-bottom:1px solid #e2e8f0;">${ag.title}</td>
-      <td style="padding:7px 10px;text-align:center;border-bottom:1px solid #e2e8f0;">
-        <span style="background:${vb};color:${vc};font-size:7.5px;font-weight:800;padding:3px 8px;border-radius:3px;white-space:nowrap;letter-spacing:.04em;font-family:monospace;">${vl}</span>
-      </td>
-      <td style="padding:7px 10px;font-size:8.5px;color:#3a3a3a;line-height:1.5;border-bottom:1px solid #e2e8f0;">${v.finding || '—'}</td>
-      <td style="padding:7px 10px;text-align:center;font-family:monospace;font-size:7px;color:#999;border-bottom:1px solid #e2e8f0;">[${v.confidence || 'M'}]</td>
-    </tr>`;
-  }).filter(Boolean).join('');
 
-  const verdictMatrixHtml = matrixRows ? `
-<div style="width:794px;min-height:1122px;position:relative;background:#fff;page-break-after:always;overflow:hidden;">
-  ${header('VERDICT MATRIX · ALL AGENTS')}
-  <div style="padding:24px 50px 0;">
-    <div style="font-family:'Playfair Display',serif;font-size:18px;color:#0f1f3d;font-weight:700;margin-bottom:2px;">Verdict Matrix</div>
-    <div style="height:2px;background:linear-gradient(90deg,#0f1f3d 0%,#2563eb 40%,transparent 100%);margin-bottom:6px;"></div>
-    <div style="font-size:8px;color:#888;font-style:italic;margin-bottom:16px;">One-line verdict per agent — green means proceed, amber means monitor, red means act now. Drill into any agent section for the full analysis.</div>
-    <table style="width:100%;border-collapse:collapse;font-size:9px;">
-      <thead>
-        <tr style="background:#0f1f3d;color:#fff;">
-          <th style="padding:8px 10px;text-align:left;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:28%;">Agent</th>
-          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:14%;">Status</th>
-          <th style="padding:8px 10px;text-align:left;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Key Finding</th>
-          <th style="padding:8px 10px;text-align:center;font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:7%;">Conf.</th>
-        </tr>
-      </thead>
-      <tbody>${matrixRows}</tbody>
-    </table>
-  </div>
-  ${footer(3)}
-</div>` : '';
 
   // Agent pages
   const agentPageHtml = agentPages.map((ag, i) => `
@@ -1771,7 +1732,6 @@ function buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlock
   </head><body>
     ${coverHtml}
     ${sourcesHtml}
-    ${verdictMatrixHtml}
     ${synopsisHtml}
     ${actionPlanHtml}
     ${agentPageHtml}
@@ -1963,6 +1923,7 @@ export default function AdvisorSprintIntelligence() {
     timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
     setAppState("preparing");
     setResults({});
+    setDataBlocks({});
     setSources([]);
     setElapsed(0);
 
@@ -2350,7 +2311,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
                 {pdfGenerating ? 'Generating…' : '⬇ Full Report'}
               </button>
             )}
-            {(dataBlocks['brief']?.strategicTension || dataBlocks['brief']?.moves?.length || results['brief']) && (
+            {(dataBlocks['brief']?.agent === 'brief' || dataBlocks['brief']?.strategicTension || dataBlocks['brief']?.moves?.length || (results['brief'] && results['brief'].length > 10)) && (
               <button onClick={generateSaaSBrief} disabled={briefGenerating} style={{ padding: '6px 16px', background: briefGenerating ? '#ffffff20' : N.blue, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: briefGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
                 {briefGenerating ? 'Generating…' : '⬇ Opportunity Brief'}
               </button>
