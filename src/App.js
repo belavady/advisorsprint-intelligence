@@ -260,7 +260,7 @@ Do not add any other prose, headers, or sections. The DATA_BLOCK is the complete
 
 ## ⚡ CRITICAL — DO THIS FIRST BEFORE ANYTHING ELSE
 
-Your FIRST action must be to write the DATA_BLOCK below. Do not write any prose, analysis, or explanation before the DATA_BLOCK. Begin your response with <<<DATA_BLOCK>>> on the very first line.
+Your FIRST action must be to write the DATA_BLOCK below. Do not write any prose, analysis, or explanation before the DATA_BLOCK. Begin your response with <<<DATA_BLOCK>>> on the very first line. End the DATA_BLOCK with <<<END_DATA_BLOCK>>> on its own line before writing anything else.
 
 After completing the DATA_BLOCK, write exactly:
 
@@ -1887,13 +1887,15 @@ export default function AdvisorSprintIntelligence() {
     try {
       const text = await callClaude(prompt, id, signal);
       if (!signal.aborted) {
-        // Normalise: if model wrapped entire response in ```json fences, strip them first
+        // Normalise: strip outer backtick fences if model wrapped response
         const normText = text.replace(/^```json\s*/,'').replace(/\s*```$/,'');
-        const dbMatch = normText.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+        const dbMatch = normText.match(
+          /<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/
+        );
         const cleanText = text.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '').trim();
         if (dbMatch) {
           try {
-            const raw = (dbMatch[1] || dbMatch[2] || '').trim();
+            const raw = (dbMatch[1] || dbMatch[2] || dbMatch[3] || '').trim();
             const cleaned = raw.replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
             // Sanitise: remove control characters that break JSON.parse
             const sanitised = cleaned.replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '');
@@ -2074,9 +2076,9 @@ export default function AdvisorSprintIntelligence() {
         // Instead: parse the brief DATA_BLOCK from w1texts and pass it explicitly
         try {
           const briefRaw = w1texts['brief'] || '';
-          const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+          const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
           if (dbMatch) {
-            const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
+            const raw = (dbMatch[1] || dbMatch[2] || dbMatch[3] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
             const briefDataBlock = JSON.parse(raw);
             // Only auto-generate if brief has real content — skip if just stub/recovery block
             if (!briefDataBlock.strategicTension && !briefDataBlock.moves?.length) {
@@ -2085,9 +2087,9 @@ export default function AdvisorSprintIntelligence() {
             const allDataBlocks = { ...Object.fromEntries(
               Object.entries(w1texts).map(([k, v]) => {
                 if (typeof v !== 'string') return [k, v];
-                const m = v.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+                const m = v.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
                 if (!m) return [k, null];
-                try { return [k, JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
+                try { return [k, JSON.parse((m[1]||m[2]||m[3]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
                 catch(e) { return [k, null]; }
               }).filter(([,v]) => v !== null)
             ), brief: briefDataBlock };
@@ -2189,16 +2191,16 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
       // Auto-generate brief PDF
       try {
         const briefRaw = briefText || '';
-        const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+        const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
         if (dbMatch) {
           const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
           const briefDataBlock = JSON.parse(raw);
           const allDataBlocks = { ...Object.fromEntries(
             Object.entries(w1texts).map(([k, v]) => {
               if (typeof v !== 'string') return [k, v];
-              const m = v.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+              const m = v.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
               if (!m) return [k, null];
-              try { return [k, JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
+              try { return [k, JSON.parse((m[1]||m[2]||m[3]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
               catch(e) { return [k, null]; }
             }).filter(([,v]) => v !== null)
           ), brief: briefDataBlock };
