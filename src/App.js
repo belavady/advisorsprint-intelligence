@@ -837,7 +837,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   const db = dataBlocks['brief'] || {};
   const raw = results['brief'] || '';
 
-  const boldMatch = raw.match(/BOLD STATEMENT[:\s]*\n([^\n]+)/i);
+  const boldMatch = raw.match(/BOLD STATEMENT[^\n]*\n([^\n]+)/i);
   const boldStatement = boldMatch ? boldMatch[1].trim().replace(/^\*+|\*+$/g,'') : (db.boldStatement || '');
 
   const kpis          = Array.isArray(db.kpis)             ? db.kpis             : [];
@@ -1712,11 +1712,6 @@ export default function AdvisorSprintIntelligence() {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [briefGenerating, setBriefGenerating] = useState(false);
   const [retryingBrief, setRetryingBrief] = useState(false);
-  const [thinkingBlocks, setThinkingBlocks] = useState({});
-  const [toolLogs, setToolLogs] = useState({});
-  const [gapAnalysis, setGapAnalysis] = useState(null);
-  const [tracePdfGenerating, setTracePdfGenerating] = useState(false);
-  const [gapAnalysisRunning, setGapAnalysisRunning] = useState(false);
   const [sources, setSources] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [elapsed, setElapsed] = useState(0);
@@ -1777,8 +1772,7 @@ export default function AdvisorSprintIntelligence() {
               if (event.type === 'chunk') fullText += event.text;
               if (event.type === 'searching') setStatuses(s => ({ ...s, [agentId]: `searching: ${event.query.slice(0,40)}…` }));
               if (event.type === 'done') fullText = event.text || fullText;
-              if (event.type === 'thinking')  setThinkingBlocks(t => ({ ...t, [event.agentId]: event.text }));
-              if (event.type === 'toollog')   setToolLogs(l => ({ ...l, [event.agentId]: event.log }));
+
               if (event.type === 'source' && event.url) {
                 setSources(prev => {
                   if (prev.find(s => s.url === event.url)) return prev;
@@ -1825,7 +1819,7 @@ export default function AdvisorSprintIntelligence() {
             const parsed = JSON.parse(cleaned);
             setDataBlocks(d => ({ ...d, [id]: parsed }));
           } catch(e) {
-            console.warn('[DataBlock] parse failed:', id, e.message);
+            console.warn('[DataBlock] parse failed:', id, e.message, '| Raw (first 200):', (dbMatch[1]||dbMatch[2]||'').trim().slice(0,200));
             // Attempt graceful recovery: try to extract verdictRow via regex even if full JSON is malformed
             let recoveredBlock = { agent: id, kpis: [{ label: 'Analysis', value: '✓', sub: 'Full analysis in prose below', trend: 'flat', confidence: 'M' }], verdictRow: null };
             try {
@@ -1947,16 +1941,7 @@ export default function AdvisorSprintIntelligence() {
       if (!signal.aborted) {
         setAppState("done");
         // NOTE: sessionStorage cleared AFTER brief/gap triggers use it
-        // Trigger Agent 12 gap analysis — only if context was provided
-        if (ctx && ctx.trim().length > 50) {
-          try {
-            const briefRaw = w1texts['brief'] || '';
-            const dbM = briefRaw.match(/<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
-            const briefDB = dbM ? JSON.parse(dbM[1].trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim()) : {};
-            const synopsisText = (w1texts['synopsis'] || '').replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim();
-            runGapAnalysis(co, ctx, synopsisText, briefDB);
-          } catch(e) { console.warn('[Agent12 trigger]', e.message); }
-        }
+
         // Auto-generate the opportunity brief PDF using w1texts directly
         // Cannot use dataBlocks state here — setDataBlocks is async and stale in this closure
         // Instead: parse the brief DATA_BLOCK from w1texts and pass it explicitly
@@ -1969,8 +1954,7 @@ export default function AdvisorSprintIntelligence() {
             // Only auto-generate if brief has real content — skip if just stub/recovery block
             if (!briefDataBlock.strategicTension && !briefDataBlock.moves?.length) {
               console.warn('[AutoBrief] Brief DATA_BLOCK is sparse — skipping auto-generation. Use button to retry.');
-              return;
-            }
+            } else {
             const allDataBlocks = { ...Object.fromEntries(
               Object.entries(w1texts).map(([k, v]) => {
                 if (typeof v !== 'string') return [k, v];
@@ -1984,6 +1968,7 @@ export default function AdvisorSprintIntelligence() {
               Object.entries(w1texts).map(([k,v]) => [k, typeof v === 'string' ? v.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim() : v])
             );
             generateSaaSBriefFromData(co, acq, sector, stage, allResults, allDataBlocks, acquisitionMode);
+            } // end else (quality gate passed)
           }
         } catch(parseErr) {
           console.warn('[AutoBrief] Could not parse brief data block:', parseErr.message);
@@ -2034,294 +2019,10 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
     }
   };
 
-  // ── AGENT 12: GAP ANALYSIS ─────────────────────────────────────────
-  const runGapAnalysis = async (co, ctx, synopsisText, briefDataBlock) => {
-    setGapAnalysisRunning(true);
-    const prompt = `You are a prompt engineering advisor reviewing an AI sprint output.
-You have three inputs:
-1. The context brief the user provided before the sprint
-2. The synopsis the AI produced
-3. The opportunity brief DATA_BLOCK the AI produced
-
-Your job: answer exactly three questions with specific, actionable bullets. No preamble. Start immediately with Question 1.
-
-## CONTEXT BRIEF PROVIDED BY USER
-${ctx || '(no context provided)'}
-
-## SYNOPSIS OUTPUT (trimmed)
-${(synopsisText || '').slice(0, 2000)}
-
-## OPPORTUNITY BRIEF DATA_BLOCK
-${JSON.stringify(briefDataBlock || {}, null, 2).slice(0, 3000)}
-
----
-
-## QUESTION 1: WHAT THE BRIEF SURFACED THAT YOUR CONTEXT DIDN'T PROVIDE
-List specific facts, figures, or competitors the AI found independently that were NOT in your context brief. For each: state the finding and flag whether it should be verified (found via search) or is likely reliable.
-
-## QUESTION 2: WHAT YOUR CONTEXT PROVIDED THAT THE BRIEF DIDN'T USE
-List specific points from your context brief that did not appear in the brief output. For each: state why it likely wasn't used (too generic, contradicted by data, framing issue) and whether it should be made more explicit next time.
-
-## QUESTION 3: WHAT TO ADD OR CHANGE IN YOUR CONTEXT BRIEF NEXT TIME
-Specific, copy-paste-ready suggestions. Format each as:
-ADD: "..." — why this would improve output
-REMOVE: "..." — why this is not helping
-REFRAME: "..." → "..." — how to sharpen the instruction`;
-
-    try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, agentId: 'gap_analysis', market: 'US', mode: 'saas' }),
-        signal: AbortSignal.timeout(120000),
-      });
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '', fullText = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\\n');
-        buffer = lines.pop();
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const ev = JSON.parse(line.slice(6));
-            if (ev.type === 'chunk') fullText += ev.text;
-            if (ev.type === 'done') fullText = ev.text || fullText;
-          } catch(e) {}
-        }
-      }
-      setGapAnalysis(fullText.trim());
-    } catch(e) {
-      console.warn('[Agent12] Gap analysis failed:', e.message);
-      setGapAnalysis('Gap analysis failed — run again or check console.');
-    } finally {
-      setGapAnalysisRunning(false);
-      // Signal to generateTracePDF wait loop that gap analysis is done
-      try { sessionStorage.setItem('gapAnalysisDone', '1'); } catch(e) {}
-    }
-  };
+  // ── AGENT 12: GAP ANALYSIS ─────────────────────────────────────────;
 
   // ── BUILD TRACE PDF ──────────────────────────────────────────────────
-  const buildTracePdfHtml = (co, acq, ctx, allDataBlocks, allThinking, allToolLogs, gapText, elapsedSecs) => {
-    const date = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-    const navy = '#0f1f3d', blue = '#2563eb', green = '#16a34a', amber = '#d97706', coral = '#b85c38';
-    const confBg = v => v==='H'?'#dcfce7':v==='M'?'#fef3c7':v==='L'?'#fee2e2':'#f3f4f6';
-    const confCol = v => v==='H'?green:v==='M'?amber:v==='L'?'#dc2626':'#9ca3af';
 
-    const AGENTS = ['market','product','gtm','revenue','customer','competitive','funding','pricing','intl','synopsis','brief'];
-    const LABELS = { market:'Market', product:'Product', gtm:'GTM', revenue:'Revenue', customer:'Customer',
-      competitive:'Competitive', funding:'Funding', pricing:'Pricing', intl:"Int'l", synopsis:'Synopsis', brief:'Brief' };
-
-    const agentRows = AGENTS.map(id => {
-      const db = allDataBlocks[id] || {};
-      const kpis = Array.isArray(db.kpis) ? db.kpis : [];
-      const ov = db.verdictRow?.confidence || (kpis[0]?.confidence) || '—';
-      const cells = kpis.slice(0,4).map(k => {
-        const c = k.confidence || '—';
-        return `<td style="padding:5px 8px;text-align:center;background:${confBg(c)};border:1px solid #e5e7eb;">
-          <span style="font-size:9px;font-weight:800;color:${confCol(c)};font-family:monospace;">${c}</span>
-          <div style="font-size:6px;color:#6b7280;margin-top:1px;overflow:hidden;max-width:55px;white-space:nowrap;">${(k.label||'').slice(0,12)}</div>
-        </td>`;
-      }).join('') + '<td style="padding:5px;background:#f9fafb;border:1px solid #e5e7eb;"></td>'.repeat(Math.max(0,4-kpis.slice(0,4).length));
-      return `<tr>
-        <td style="padding:5px 10px;font-size:8px;font-weight:700;color:${navy};border:1px solid #e5e7eb;background:#f9fafb;white-space:nowrap;">${LABELS[id]||id}</td>
-        <td style="padding:5px 8px;text-align:center;background:${confBg(ov)};border:1px solid #e5e7eb;">
-          <span style="font-size:10px;font-weight:900;color:${confCol(ov)};font-family:monospace;">${ov}</span>
-        </td>
-        ${cells}
-        <td style="padding:5px 10px;font-size:6.5px;color:#6b7280;border:1px solid #e5e7eb;">
-          ${kpis.map(k=>`<span style="font-weight:600;color:${confCol(k.confidence||'—')};">[${k.confidence||'—'}]</span> ${(k.label||'').slice(0,20)}`).join('<br>')}
-        </td>
-      </tr>`;
-    }).join('');
-
-    const page1 = `<div class="page" style="padding:36px;font-family:'Instrument Sans',sans-serif;position:relative;min-height:1050px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid ${navy};">
-        <div>
-          <div style="font-size:7px;font-weight:800;letter-spacing:.18em;color:${coral};margin-bottom:4px;">SPRINT INTELLIGENCE REPORT · SAAS</div>
-          <div style="font-size:24px;font-weight:900;color:${navy};">${co}${acq?` · ${acq}`:''}</div>
-          <div style="font-size:9px;color:#6b7280;margin-top:3px;">${date} · ${Math.floor(elapsedSecs/60)}m ${elapsedSecs%60}s</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:9px;font-weight:800;letter-spacing:.12em;color:rgba(15,31,61,.18);">AdvisorSprint</div>
-          <div style="font-size:7px;color:rgba(15,31,61,.18);margin-top:2px;">Harsha Belavady</div>
-        </div>
-      </div>
-      <div style="font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${navy};margin-bottom:10px;">CONFIDENCE HEATMAP · ALL AGENTS</div>
-      <div style="font-size:7px;color:#6b7280;margin-bottom:10px;">GREEN = High confidence (sourced) · AMBER = Medium (estimated) · RED = Low (signal only)</div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
-        <thead><tr style="background:${navy};color:#fff;">
-          <th style="padding:6px 10px;text-align:left;font-size:7px;font-family:monospace;">AGENT</th>
-          <th style="padding:6px 8px;text-align:center;font-size:7px;font-family:monospace;">OVERALL</th>
-          <th style="padding:6px 8px;text-align:center;font-size:7px;font-family:monospace;">KPI 1</th>
-          <th style="padding:6px 8px;text-align:center;font-size:7px;font-family:monospace;">KPI 2</th>
-          <th style="padding:6px 8px;text-align:center;font-size:7px;font-family:monospace;">KPI 3</th>
-          <th style="padding:6px 8px;text-align:center;font-size:7px;font-family:monospace;">KPI 4</th>
-          <th style="padding:6px 10px;text-align:left;font-size:7px;font-family:monospace;">LABELS</th>
-        </tr></thead>
-        <tbody>${agentRows}</tbody>
-      </table>
-      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-left:3px solid ${coral};border-radius:2px;padding:12px 16px;">
-        <div style="font-size:7px;font-weight:800;letter-spacing:.1em;color:${navy};margin-bottom:6px;">HOW TO READ THIS</div>
-        <div style="font-size:7px;color:#374151;line-height:1.7;">
-          <strong>H</strong> — sourced from named publication or filing. Safe for client use.<br>
-          <strong>M</strong> — triangulated or cross-market estimate. Check reasoning trace for the calculation.<br>
-          <strong>L</strong> — signal only. Directional — verify before using with client.<br>
-          <strong>Thin agents</strong> — mostly M/L means your context brief has gaps for that area. See Page 4.
-        </div>
-      </div>
-      <div style="position:absolute;bottom:18px;left:36px;right:36px;display:flex;justify-content:space-between;">
-        <div style="font-size:6.5px;color:#9ca3af;letter-spacing:.06em;">ADVISORSPRINT INTELLIGENCE · CONFIDENTIAL</div>
-        <div style="font-size:6.5px;color:#9ca3af;">PAGE 1 OF 4</div>
-      </div>
-    </div>`;
-
-    const tracePages = ['synopsis','brief'].map((id, idx) => {
-      const thinking = allThinking[id] || '';
-      const toolLog = allToolLogs[id] || [];
-      const agentNum = id === 'synopsis' ? 10 : 11;
-      const agentName = id === 'synopsis' ? 'EXECUTIVE SYNOPSIS' : 'OPPORTUNITY BRIEF';
-      const pageNum = idx + 2;
-      const searchRows = toolLog.map((t,i) => `
-        <tr style="border-bottom:1px solid #e5e7eb;">
-          <td style="padding:5px 8px;font-size:7px;font-weight:700;color:${navy};">#${i+1}</td>
-          <td style="padding:5px 8px;font-size:7px;color:#374151;">${t.query||'(building…)'}</td>
-          <td style="padding:5px 8px;font-size:7px;color:#6b7280;">${(t.results||[]).length} sources</td>
-          <td style="padding:5px 8px;font-size:6.5px;color:#6b7280;">${(t.results||[]).map(r=>`<div style="margin-bottom:2px;">→ ${(r.title||r.url||'').slice(0,60)}</div>`).join('')}</td>
-        </tr>`).join('');
-      return `<div class="page" style="padding:36px;font-family:'Instrument Sans',sans-serif;position:relative;min-height:1050px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid ${navy};">
-          <div>
-            <div style="font-size:7px;font-weight:800;letter-spacing:.15em;color:${coral};">AGENT ${agentNum} · REASONING TRACE</div>
-            <div style="font-size:18px;font-weight:900;color:${navy};">${agentName}</div>
-          </div>
-          <div style="font-size:6.5px;color:#9ca3af;font-family:monospace;">PAGE ${pageNum} OF 4</div>
-        </div>
-        ${thinking ? `
-        <div style="margin-bottom:16px;">
-          <div style="font-size:8px;font-weight:800;letter-spacing:.1em;color:${green};margin-bottom:8px;padding-bottom:4px;border-bottom:1.5px solid ${green};">EXTENDED THINKING — HOW THE AGENT REASONED</div>
-          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:3px solid ${green};border-radius:2px;padding:12px 14px;">
-            <div style="font-size:6.5px;color:#6b7280;margin-bottom:6px;font-family:monospace;">${thinking.length} characters · ${thinking.split(' ').length} words</div>
-            <div style="font-size:7px;color:#166534;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:600px;overflow:hidden;">${thinking.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-            ${thinking.length > 3000 ? `<div style="font-size:6.5px;color:#6b7280;margin-top:6px;font-style:italic;">Showing first ~3,000 chars of ${thinking.length} total. Full trace in console log.</div>` : ''}
-          </div>
-        </div>` : ''}
-        ${toolLog.length ? `
-        <div style="margin-bottom:16px;">
-          <div style="font-size:8px;font-weight:800;letter-spacing:.1em;color:${navy};margin-bottom:8px;padding-bottom:4px;border-bottom:1.5px solid ${navy};">RESEARCH SEQUENCE</div>
-          <table style="width:100%;border-collapse:collapse;">
-            <thead><tr style="background:${navy};color:#fff;">
-              <th style="padding:5px 8px;font-size:6.5px;font-family:monospace;">#</th>
-              <th style="padding:5px 8px;font-size:6.5px;font-family:monospace;">QUERY</th>
-              <th style="padding:5px 8px;font-size:6.5px;font-family:monospace;">RESULTS</th>
-              <th style="padding:5px 8px;font-size:6.5px;font-family:monospace;">SOURCES SELECTED</th>
-            </tr></thead>
-            <tbody>${searchRows}</tbody>
-          </table>
-        </div>` : ''}
-        <div style="position:absolute;bottom:18px;left:36px;right:36px;display:flex;justify-content:space-between;">
-          <div style="font-size:6.5px;color:#9ca3af;letter-spacing:.06em;">ADVISORSPRINT INTELLIGENCE · CONFIDENTIAL</div>
-          <div style="font-size:6.5px;color:#9ca3af;">PAGE ${pageNum} OF 4</div>
-        </div>
-      </div>`;
-    }).join('');
-
-    const gapContent = gapText 
-      ? gapText 
-      : '(Gap analysis was still running when this PDF was generated. Click ⬇ Research Trace again after a few minutes to get the complete version with gap analysis.)';
-    const gap = gapContent;
-    const page4 = `<div class="page" style="padding:36px;font-family:'Instrument Sans',sans-serif;position:relative;min-height:1050px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid ${navy};">
-        <div>
-          <div style="font-size:7px;font-weight:800;letter-spacing:.15em;color:${coral};">AGENT 12 · PROMPT IMPROVEMENT</div>
-          <div style="font-size:18px;font-weight:900;color:${navy};">GAP ANALYSIS</div>
-        </div>
-        <div style="font-size:6.5px;color:#9ca3af;font-family:monospace;">PAGE 4 OF 4</div>
-      </div>
-      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-left:3px solid ${coral};border-radius:2px;padding:10px 14px;margin-bottom:14px;">
-        <div style="font-size:7px;color:#374151;line-height:1.5;font-style:italic;">What to add, remove, or reframe in your context brief to get better output next time.</div>
-      </div>
-      <div style="font-size:7.5px;color:#1f2937;line-height:1.8;white-space:pre-wrap;word-break:break-word;">${gap.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/## (.*)/g,'<div style="font-size:9px;font-weight:800;color:'+navy+';margin:14px 0 6px;">$1</div>').replace(/^(ADD|REMOVE|REFRAME):/gm,'<strong style="color:'+coral+';">$1:</strong>')}</div>
-      <div style="position:absolute;bottom:18px;left:36px;right:36px;display:flex;justify-content:space-between;">
-        <div style="font-size:6.5px;color:#9ca3af;letter-spacing:.06em;">ADVISORSPRINT INTELLIGENCE · CONFIDENTIAL</div>
-        <div style="font-size:6.5px;color:#9ca3af;">PAGE 4 OF 4</div>
-      </div>
-    </div>`;
-
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
-<style>@page{size:A4;margin:0}body{margin:0;padding:0}.page{page-break-after:always}.page:last-child{page-break-after:auto}</style>
-</head><body>${page1}${tracePages}${page4}</body></html>`;
-  };
-
-  const generateTracePDF = async () => {
-    if (tracePdfGenerating) return;
-    // If gap analysis is still running, wait up to 60s for it to complete
-    // Use DOM polling not closure variable (closure captures stale value)
-    if (gapAnalysisRunning) {
-      await new Promise(resolve => {
-        let waited = 0;
-        const poll = setInterval(() => {
-          waited += 500;
-          // Check sessionStorage flag set by runGapAnalysis on completion
-          const done = sessionStorage.getItem('gapAnalysisDone') === '1';
-          if (done || waited >= 60000) {
-            clearInterval(poll);
-            sessionStorage.removeItem('gapAnalysisDone');
-            resolve();
-          }
-        }, 500);
-      });
-    }
-    setTracePdfGenerating(true);
-    try {
-      // Resolve dataBlocks from sessionStorage (not stale React state)
-      let resolvedDataBlocks = { ...dataBlocks };
-      try {
-        const saved = sessionStorage.getItem(`sprint_${company.trim()}`);
-        if (saved) {
-          const w1 = JSON.parse(saved);
-          Object.entries(w1).forEach(([id, raw]) => {
-            if (typeof raw !== 'string') return;
-            const m = raw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
-            if (m) {
-              try {
-                const parsed = JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim());
-                resolvedDataBlocks[id] = parsed;
-              } catch(e) {}
-            }
-          });
-        }
-      } catch(e) { console.warn('[TracePDF] sessionStorage read:', e.message); }
-
-      const html = buildTracePdfHtml(
-        company.trim(), acquirer.trim(), context.trim(),
-        resolvedDataBlocks, thinkingBlocks, toolLogs,
-        gapAnalysis, elapsed
-      );
-      const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html, company: company.trim(), acquirer: acquirer.trim() }),
-        signal: AbortSignal.timeout(120000),
-      });
-      if (!pdfRes.ok) throw new Error('Trace PDF generation failed');
-      const blob = await pdfRes.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${company.trim().replace(/\s+/g,'-')}_ResearchTrace_${new Date().toISOString().slice(0,10)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch(e) {
-      alert(`Trace PDF failed: ${e.message}`);
-    } finally {
-      setTracePdfGenerating(false);
-    }
-  };
 
   const cancel = () => {
     if (abortRef.current) abortRef.current.abort();
@@ -2482,10 +2183,7 @@ REFRAME: "..." → "..." — how to sharpen the instruction`;
                 {briefGenerating ? 'Generating…' : '⬇ Opportunity Brief'}
               </button>
             )}
-            <button onClick={generateTracePDF} disabled={tracePdfGenerating}
-              style={{ padding: '6px 16px', background: tracePdfGenerating ? '#ffffff20' : '#4c1d95', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: tracePdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
-              {tracePdfGenerating ? '⟳ Building Trace…' : '⬇ Research Trace'}
-            </button>
+
           </div>
         )}
       </div>
