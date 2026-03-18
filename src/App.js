@@ -1869,6 +1869,11 @@ export default function AdvisorSprintIntelligence() {
             const cleaned = raw.replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
             const parsed = JSON.parse(cleaned);
             setDataBlocks(d => ({ ...d, [id]: parsed }));
+            // For brief: write flag to sessionStorage so button condition can find it
+            // even before React state propagates
+            if (id === 'brief') {
+              try { sessionStorage.setItem('briefReady', '1'); } catch(e) {}
+            }
           } catch(e) {
             console.warn('[DataBlock] parse failed:', id, e.message, '| Raw (first 200):', (dbMatch[1]||dbMatch[2]||'').trim().slice(0,200));
             // Attempt graceful recovery: try to extract verdictRow via regex even if full JSON is malformed
@@ -1925,6 +1930,7 @@ export default function AdvisorSprintIntelligence() {
     setResults({});
     setDataBlocks({});
     setSources([]);
+    try { sessionStorage.removeItem('briefReady'); } catch(e) {}
     setElapsed(0);
 
     try {
@@ -2311,7 +2317,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
                 {pdfGenerating ? 'Generating…' : '⬇ Full Report'}
               </button>
             )}
-            {(dataBlocks['brief']?.agent === 'brief' || dataBlocks['brief']?.strategicTension || dataBlocks['brief']?.moves?.length || (results['brief'] && results['brief'].length > 10)) && (
+            {(dataBlocks['brief']?.agent === 'brief' || dataBlocks['brief']?.strategicTension || dataBlocks['brief']?.moves?.length || (results['brief'] && results['brief'].length > 10) || sessionStorage.getItem('briefReady') === '1') && (
               <button onClick={generateSaaSBrief} disabled={briefGenerating} style={{ padding: '6px 16px', background: briefGenerating ? '#ffffff20' : N.blue, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: briefGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
                 {briefGenerating ? 'Generating…' : '⬇ Opportunity Brief'}
               </button>
