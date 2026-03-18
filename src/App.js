@@ -1729,6 +1729,7 @@ export default function AdvisorSprintIntelligence() {
     const attemptFetch = () => fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-tool-name': 'advisor-intelligence', 'Cache-Control': 'no-store' },
+      cache: 'no-store',
       signal,
       body: JSON.stringify({ prompt, agentId, market: 'US', mode: 'saas' }),
     });
@@ -1739,10 +1740,11 @@ export default function AdvisorSprintIntelligence() {
         res = await attemptFetch();
       } catch (networkErr) {
         if (signal.aborted) throw networkErr;
-        if (attempt >= 3) throw networkErr;
-        console.warn(`[${agentId}] Fetch failed (attempt ${attempt}), retrying in 10s:`, networkErr.message);
-        setStatuses(s => ({ ...s, [agentId]: `retrying… (${attempt}/3)` }));
-        await new Promise(r => setTimeout(r, 10000));
+        if (attempt >= 5) throw networkErr;
+        const retryDelay = networkErr.message?.includes('QUIC') ? 3000 : 10000;
+        console.warn(`[${agentId}] Fetch failed (attempt ${attempt}/5), retrying in ${retryDelay/1000}s:`, networkErr.message);
+        setStatuses(s => ({ ...s, [agentId]: `retrying… (${attempt}/5)` }));
+        await new Promise(r => setTimeout(r, retryDelay));
         if (signal.aborted) throw networkErr;
         return runWithRetry(attempt + 1);
       }
@@ -1790,9 +1792,9 @@ export default function AdvisorSprintIntelligence() {
         reader.cancel().catch(() => {});
         // Mid-stream QUIC drop — retry if we haven't hit limit
         if (!signal.aborted && attempt < 3 && (streamErr.message?.includes('QUIC') || streamErr.message?.includes('network') || streamErr.name === 'TypeError')) {
-          console.warn(`[${agentId}] Stream dropped (attempt ${attempt}), retrying in 10s:`, streamErr.message);
-          setStatuses(s => ({ ...s, [agentId]: `stream retry… (${attempt}/3)` }));
-          await new Promise(r => setTimeout(r, 10000));
+          console.warn(`[${agentId}] Stream dropped (attempt ${attempt}/5), retrying in 3s:`, streamErr.message);
+          setStatuses(s => ({ ...s, [agentId]: `stream retry… (${attempt}/5)` }));
+          await new Promise(r => setTimeout(r, 3000));
           if (signal.aborted) throw streamErr;
           return runWithRetry(attempt + 1);
         }
@@ -2173,17 +2175,18 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
             {retryingBrief ? '⟳ Retrying…' : '↺ Retry Brief Only'}
           </button>
         )}
-        {appState === 'done' && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={generatePDF} disabled={pdfGenerating} style={{ padding: '6px 16px', background: pdfGenerating ? '#ffffff20' : N.navyMid, color: '#fff', border: '1px solid #ffffff30', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: pdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
-              {pdfGenerating ? 'Generating…' : '⬇ Full Report'}
-            </button>
+        {(appState === 'done' || appState === 'error') && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {appState === 'done' && (
+              <button onClick={generatePDF} disabled={pdfGenerating} style={{ padding: '6px 16px', background: pdfGenerating ? '#ffffff20' : N.navyMid, color: '#fff', border: '1px solid #ffffff30', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: pdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
+                {pdfGenerating ? 'Generating…' : '⬇ Full Report'}
+              </button>
+            )}
             {(dataBlocks['brief']?.strategicTension || dataBlocks['brief']?.moves?.length || results['brief']) && (
               <button onClick={generateSaaSBrief} disabled={briefGenerating} style={{ padding: '6px 16px', background: briefGenerating ? '#ffffff20' : N.blue, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: briefGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
                 {briefGenerating ? 'Generating…' : '⬇ Opportunity Brief'}
               </button>
             )}
-
           </div>
         )}
       </div>
