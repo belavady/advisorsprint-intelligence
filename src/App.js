@@ -1712,6 +1712,7 @@ export default function AdvisorSprintIntelligence() {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [briefGenerating, setBriefGenerating] = useState(false);
   const [retryingBrief, setRetryingBrief] = useState(false);
+  const [retryingSynopsis, setRetryingSynopsis] = useState(false);
   const [sources, setSources] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [elapsed, setElapsed] = useState(0);
@@ -2021,6 +2022,79 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
     }
   };
 
+  // ── RETRY SYNOPSIS + BRIEF ──────────────────────────────────────────
+  const retrySynopsisAndBrief = async () => {
+    if (retryingSynopsis) return;
+    setRetryingSynopsis(true);
+    setAppState("running");
+    const co = company.trim();
+    try {
+      const saved = sessionStorage.getItem(`sprint_${co}`);
+      if (!saved) throw new Error("No saved sprint data — please re-run the full sprint");
+      const w1texts = JSON.parse(saved);
+      // Verify we have enough agent outputs to synthesise from
+      const agentsDone = Object.keys(w1texts).filter(k => !['synopsis','brief'].includes(k));
+      if (agentsDone.length < 5) throw new Error("Too few agents completed — please re-run the full sprint");
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const signal = ctrl.signal;
+      const acq = acquisitionMode ? acquirer.trim() : '';
+      const ctx = context.trim();
+      const ctxWithMeta = `COMPANY: ${co}\nSECTOR: ${sector}\nSTAGE: ${stage}${acquisitionMode && acq ? `\nACQUIRER: ${acq}` : ''}${ctx ? `\nADDITIONAL CONTEXT: ${ctx}` : ''}`;
+
+      // Run synopsis
+      setStatuses(s => ({ ...s, synopsis: "running" }));
+      const synopsisPrompt = makeSaaSPrompt('synopsis', co, acq, ctxWithMeta, w1texts);
+      const synopsisText = await runAgent('synopsis', synopsisPrompt, signal);
+      w1texts['synopsis'] = synopsisText;
+      setStatuses(s => ({ ...s, synopsis: "done" }));
+
+      // 60s gap before brief
+      if (!signal.aborted) await new Promise(r => setTimeout(r, 60000));
+
+      // Run brief
+      setStatuses(s => ({ ...s, brief: "running" }));
+      const briefPrompt = makeSaaSPrompt('brief', co, acq, ctxWithMeta, w1texts);
+      const briefText = await runAgent('brief', briefPrompt, signal);
+      w1texts['brief'] = briefText;
+      setStatuses(s => ({ ...s, brief: "done" }));
+
+      // Update sessionStorage with completed synopsis+brief
+      try { sessionStorage.setItem(`sprint_${co}`, JSON.stringify(w1texts)); } catch(e) {}
+
+      // Auto-generate brief PDF
+      try {
+        const briefRaw = briefText || '';
+        const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+        if (dbMatch) {
+          const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
+          const briefDataBlock = JSON.parse(raw);
+          const allDataBlocks = { ...Object.fromEntries(
+            Object.entries(w1texts).map(([k, v]) => {
+              if (typeof v !== 'string') return [k, v];
+              const m = v.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+              if (!m) return [k, null];
+              try { return [k, JSON.parse((m[1]||m[2]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
+              catch(e) { return [k, null]; }
+            }).filter(([,v]) => v !== null)
+          ), brief: briefDataBlock };
+          const allResults = Object.fromEntries(
+            Object.entries(w1texts).map(([k,v]) => [k, typeof v === 'string' ? v.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim() : v])
+          );
+          generateSaaSBriefFromData(co, acq, sector, stage, allResults, allDataBlocks, acquisitionMode);
+        }
+      } catch(e) { console.warn('[RetrySynopsis AutoBrief]', e.message); }
+
+      setAppState("done");
+    } catch(e) {
+      console.error("[RetrySynopsisAndBrief]", e.message);
+      alert(`Retry failed: ${e.message}`);
+      setAppState("error");
+    } finally {
+      setRetryingSynopsis(false);
+    }
+  };
+
   // ── AGENT 12: GAP ANALYSIS ─────────────────────────────────────────;
 
   // ── BUILD TRACE PDF ──────────────────────────────────────────────────
@@ -2173,6 +2247,12 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
           <button onClick={retryBrief} disabled={retryingBrief}
             style={{ padding: '6px 16px', background: retryingBrief ? '#ffffff20' : '#b85c38', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: retryingBrief ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
             {retryingBrief ? '⟳ Retrying…' : '↺ Retry Brief Only'}
+          </button>
+        )}
+        {appState === 'error' && !results['synopsis'] && Object.keys(results).length >= 5 && (
+          <button onClick={retrySynopsisAndBrief} disabled={retryingSynopsis}
+            style={{ padding: '6px 16px', background: retryingSynopsis ? '#ffffff20' : '#7c3aed', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: retryingSynopsis ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
+            {retryingSynopsis ? '⟳ Retrying…' : '↺ Retry Synopsis + Brief'}
           </button>
         )}
         {(appState === 'done' || appState === 'error') && (
