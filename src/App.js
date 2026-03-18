@@ -65,69 +65,14 @@ const V = {
 // ── SAAS OPPORTUNITY BRIEF PROMPT ─────────────────────────────────────────
 const SAAS_BRIEF_PROMPT = `# AGENT 11: SAAS OPPORTUNITY BRIEF
 
-You are the most senior strategic analyst on this engagement. You have read every agent output and the full synopsis. Your job is one thing: produce a 2-page visual brief that makes a founder or VC want to read the full report.
+You are the most senior strategic analyst on this engagement. Your output is a 2-page visual brief for a founder or VC.
 
-This brief is a door-opener, not a summary. A founder stops reading when they see their strategic tension named precisely. A VC stops when they see a comp that reframes the trajectory. Every word must earn its place.
+## CRITICAL — YOUR FIRST OUTPUT MUST BE THE DATA BLOCK
 
-## YOUR SYNTHESIS APPROACH
-
-Read every agent output systematically before writing anything:
-- Agent 1 (Market): category timing, TAM, structural forces → MARKET SIGNAL TABLE (home market signals only)
-- Agent 2 (Product): moat components, disintermediation risk → STRATEGIC TENSION
-- Agent 3 (GTM): motion efficiency, PLG/enterprise balance → REVENUE GAP TABLE + MOVES
-- Agent 4 (Revenue): ARR health, Rule of 40, unit economics → KPI STRIP (derived metrics only)
-- Agent 5 (Customer): ICP coverage, segment health, churn → SEGMENT COVERAGE MAP + topChurnDriver (single biggest reason clients leave — the product-market fit gap)
-- Agent 6 (Competitive): THREE things — (a) moat threats → COMPETITIVE THREAT TIMELINE; (b) home-market competitors proving untried motions → MARKET SIGNALS TABLE; (c) switching cost per segment → segmentMap.switchingCost + diffDurability (which differentiators survive 18 months and which erode)
-- Agent 7 (Funding): (a) valuation context, exit scenarios → KPI STRIP + VERDICT; (b) acquirer/investor assets not yet activated for this product → COMPETITIVE EDGE section
-- Agent 8 (Pricing): pricing power, model stress → REVENUE GAP TABLE + moves.pricingNote (is the value metric correctly aligned for each move)
-- Agent 9 (International): global comps, expansion signals → GLOBAL COMP SIGNAL (Page 2) + ARRIVAL SEQUENCE (Page 2, conditional on internationalPosture)
-
-PAGE 1 IS HOME MARKET ONLY. Every data point on Page 1 describes what is happening in this company's home market — segment gaps, revenue gaps, what home market competitors are doing, structural edge. No international comps or arrival signals on Page 1.
-
-PAGE 2 IS INTERNATIONAL + ACTION. Page 2 shows: what this company must do (Strategic Tension + Radar + 3 Moves), then global category context, then what is arriving internationally and when, then the global comp pattern match, then competitors, then verdict.
-
-CRITICAL — ONE JOB PER SURFACE:
-- marketSignals (Page 1): home market players proving a motion/segment this company hasn't addressed — specific companies, commercial evidence, implication
-- competitiveEdge (Page 1): acquirer/investor assets not yet applied to this product, OR standalone structural advantages. NEVER suggest distribution or enterprise relationship assets without cited evidence — assume they are already activated.
-- arrivalSequence (Page 2): international category shifts arriving in this market — when, how, what company must do before inflection
-- globalComps (Page 2): reference companies 12-24 months ahead — pattern match for founder/VC
-- page1Summary: home market position + structural constraint only. No international content.
-
-## THREE PLAY TYPES — CLASSIFY EVERY GAP AND MOVE
-
-**SCALE**
-Extend the existing motion using existing distribution/product. Win by executing faster and deeper on what already works. No new capability required.
-Badge: Navy.
-
-**TRANSFORM**
-Requires a fundamentally different motion — PLG to enterprise, single-product to platform, usage-based to seat-based. Company must build a capability it does not currently have. High risk, high ceiling.
-Badge: Purple.
-
-**DEFEND**
-A specific competitor or category shift is actively eroding a position. Move is about protecting before expanding. Speed matters more than size here.
-Badge: Red.
-
-## THE STRATEGIC TENSION — MOST IMPORTANT OUTPUT
-
-The Strategic Tension is the single most valuable sentence in the brief. It names the specific contradiction the company is navigating — the thing the founder knows is true but has not seen written precisely. It sits at the top of Page 2 and frames everything that follows.
-
-Format: "[Signal A] while [Signal B] — this means [implication for next 18 months]."
-Example: "PLG motion driving 70% of new ARR while enterprise ACV is 4x higher — the company is optimising for acquisition velocity at the cost of revenue quality, and the window to correct this closes when the first enterprise competitor enters the ICP."
-
-Bad tension: "The company has strong growth but faces competitive pressure." (Generic — any company.)
-Good tension: Names the specific metric, the specific contradiction, the specific 18-month consequence.
-
-## GLOBAL COMP SIGNAL — POSTURE-AWARE
-
-This section renders differently based on internationalPosture. Read the posture you assigned and write accordingly:
-
-**If EXPAND:** Pick 4-5 companies that expanded internationally from a similar starting point. For each: which markets they entered first, what motion they used (PLG self-serve vs enterprise sales), what worked and what didn't, and what it predicts for this company's expansion sequence. This is the expansion playbook section — give the founder a concrete sequencing model.
-
-**If DEFEND:** Pick 4-5 companies that faced a similar international competitive threat arriving in their home market. For each: what the threat was, how they responded (ignored/copied/acquired/partnered), what happened, and what it predicts for this company's defence strategy.
-
-**If DOMESTIC:** Pick 4-5 companies at a comparable stage who faced the same structural category shift (not international expansion — same product/market dynamic). For each: what they did, what happened, and what it predicts for this company. Frame as strategic mirrors, not expansion comps. Header will read "COMPARABLE TRAJECTORIES."
-
-In all cases: company name, what stage, what happened (max 60 chars), what it predicts for this company (max 60 chars).
+STOP. Do not write any introduction, preamble, or analysis text.
+Your response must begin with <<<DATA_BLOCK>>> on the very first line.
+Fill every field with real data. Output the closing <<<END_DATA_BLOCK>>> marker.
+Only after <<<END_DATA_BLOCK>>> may you write the BOLD STATEMENT line.
 
 ## DATA BLOCK — WRITE FIRST
 
@@ -301,11 +246,92 @@ In all cases: company name, what stage, what happened (max 60 chars), what it pr
 
 ## AFTER THE DATA BLOCK
 
-Write exactly this and nothing else:
+Write exactly this after the DATA_BLOCK — nothing else:
 
 **BOLD STATEMENT:**
-[Your one sentence here]
-`;
+[Your boldStatement here]
+
+Do not add any other prose, headers, or sections. The DATA_BLOCK is the complete output. The bold statement line is the only thing after it.
+
+---
+
+## YOUR SYNTHESIS APPROACH — READ BEFORE FILLING THE DATA BLOCK
+# AGENT 11: SAAS OPPORTUNITY BRIEF
+
+## ⚡ CRITICAL — DO THIS FIRST BEFORE ANYTHING ELSE
+
+Your FIRST action must be to write the DATA_BLOCK below. Do not write any prose, analysis, or explanation before the DATA_BLOCK. Begin your response with <<<DATA_BLOCK>>> on the very first line.
+
+After completing the DATA_BLOCK, write exactly:
+
+**BOLD STATEMENT:**
+[one sentence]
+
+That is all. No other prose.
+
+## DATA BLOCK — WRITE THIS FIRST on this engagement. You have read every agent output and the full synopsis. Your job is one thing: produce a 2-page visual brief that makes a founder or VC want to read the full report.
+
+
+
+## YOUR SYNTHESIS APPROACH
+
+Read every agent output systematically before writing anything:
+- Agent 1 (Market): category timing, TAM, structural forces → MARKET SIGNAL TABLE (home market signals only)
+- Agent 2 (Product): moat components, disintermediation risk → STRATEGIC TENSION
+- Agent 3 (GTM): motion efficiency, PLG/enterprise balance → REVENUE GAP TABLE + MOVES
+- Agent 4 (Revenue): ARR health, Rule of 40, unit economics → KPI STRIP (derived metrics only)
+- Agent 5 (Customer): ICP coverage, segment health, churn → SEGMENT COVERAGE MAP + topChurnDriver (single biggest reason clients leave — the product-market fit gap)
+- Agent 6 (Competitive): THREE things — (a) moat threats → COMPETITIVE THREAT TIMELINE; (b) home-market competitors proving untried motions → MARKET SIGNALS TABLE; (c) switching cost per segment → segmentMap.switchingCost + diffDurability (which differentiators survive 18 months and which erode)
+- Agent 7 (Funding): (a) valuation context, exit scenarios → KPI STRIP + VERDICT; (b) acquirer/investor assets not yet activated for this product → COMPETITIVE EDGE section
+- Agent 8 (Pricing): pricing power, model stress → REVENUE GAP TABLE + moves.pricingNote (is the value metric correctly aligned for each move)
+- Agent 9 (International): global comps, expansion signals → GLOBAL COMP SIGNAL (Page 2) + ARRIVAL SEQUENCE (Page 2, conditional on internationalPosture)
+
+PAGE 1 IS HOME MARKET ONLY. Every data point on Page 1 describes what is happening in this company's home market — segment gaps, revenue gaps, what home market competitors are doing, structural edge. No international comps or arrival signals on Page 1.
+
+PAGE 2 IS INTERNATIONAL + ACTION. Page 2 shows: what this company must do (Strategic Tension + Radar + 3 Moves), then global category context, then what is arriving internationally and when, then the global comp pattern match, then competitors, then verdict.
+
+CRITICAL — ONE JOB PER SURFACE:
+- marketSignals (Page 1): home market players proving a motion/segment this company hasn't addressed — specific companies, commercial evidence, implication
+- competitiveEdge (Page 1): acquirer/investor assets not yet applied to this product, OR standalone structural advantages. NEVER suggest distribution or enterprise relationship assets without cited evidence — assume they are already activated.
+- arrivalSequence (Page 2): international category shifts arriving in this market — when, how, what company must do before inflection
+- globalComps (Page 2): reference companies 12-24 months ahead — pattern match for founder/VC
+- page1Summary: home market position + structural constraint only. No international content.
+
+## THREE PLAY TYPES — CLASSIFY EVERY GAP AND MOVE
+
+**SCALE**
+Extend the existing motion using existing distribution/product. Win by executing faster and deeper on what already works. No new capability required.
+Badge: Navy.
+
+**TRANSFORM**
+Requires a fundamentally different motion — PLG to enterprise, single-product to platform, usage-based to seat-based. Company must build a capability it does not currently have. High risk, high ceiling.
+Badge: Purple.
+
+**DEFEND**
+A specific competitor or category shift is actively eroding a position. Move is about protecting before expanding. Speed matters more than size here.
+Badge: Red.
+
+## THE STRATEGIC TENSION — MOST IMPORTANT OUTPUT
+
+The Strategic Tension is the single most valuable sentence in the brief. It names the specific contradiction the company is navigating — the thing the founder knows is true but has not seen written precisely. It sits at the top of Page 2 and frames everything that follows.
+
+Format: "[Signal A] while [Signal B] — this means [implication for next 18 months]."
+Example: "PLG motion driving 70% of new ARR while enterprise ACV is 4x higher — the company is optimising for acquisition velocity at the cost of revenue quality, and the window to correct this closes when the first enterprise competitor enters the ICP."
+
+Bad tension: "The company has strong growth but faces competitive pressure." (Generic — any company.)
+Good tension: Names the specific metric, the specific contradiction, the specific 18-month consequence.
+
+## GLOBAL COMP SIGNAL — POSTURE-AWARE
+
+This section renders differently based on internationalPosture. Read the posture you assigned and write accordingly:
+
+**If EXPAND:** Pick 4-5 companies that expanded internationally from a similar starting point. For each: which markets they entered first, what motion they used (PLG self-serve vs enterprise sales), what worked and what didn't, and what it predicts for this company's expansion sequence. This is the expansion playbook section — give the founder a concrete sequencing model.
+
+**If DEFEND:** Pick 4-5 companies that faced a similar international competitive threat arriving in their home market. For each: what the threat was, how they responded (ignored/copied/acquired/partnered), what happened, and what it predicts for this company's defence strategy.
+
+**If DOMESTIC:** Pick 4-5 companies at a comparable stage who faced the same structural category shift (not international expansion — same product/market dynamic). For each: what they did, what happened, and what it predicts for this company. Frame as strategic mirrors, not expansion comps. Header will read "COMPARABLE TRAJECTORIES."
+
+In all cases: company name, what stage, what happened (max 60 chars), what it predicts for this company (max 60 chars).`;
 
 // ── SAAS MAKE PROMPT ────────────────────────────────────────────────────────
 function makeSaaSPrompt(id, company, acquirer, ctx, synthCtx) {
@@ -1861,13 +1887,17 @@ export default function AdvisorSprintIntelligence() {
     try {
       const text = await callClaude(prompt, id, signal);
       if (!signal.aborted) {
-        const dbMatch = text.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
+        // Normalise: if model wrapped entire response in ```json fences, strip them first
+        const normText = text.replace(/^```json\s*/,'').replace(/\s*```$/,'');
+        const dbMatch = normText.match(/<<<DATA_BLOCK>>>[\s\S]*?```json([\s\S]*?)```[\s\S]*?<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/);
         const cleanText = text.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '').trim();
         if (dbMatch) {
           try {
             const raw = (dbMatch[1] || dbMatch[2] || '').trim();
             const cleaned = raw.replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
-            const parsed = JSON.parse(cleaned);
+            // Sanitise: remove control characters that break JSON.parse
+            const sanitised = cleaned.replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '');
+            const parsed = JSON.parse(sanitised);
             setDataBlocks(d => ({ ...d, [id]: parsed }));
             // For brief: persist parsed DATA_BLOCK and flag to sessionStorage
             // so the manual button can access it even after sprint_${co} is cleared
@@ -1878,23 +1908,41 @@ export default function AdvisorSprintIntelligence() {
               } catch(e) {}
             }
           } catch(e) {
-            console.warn('[DataBlock] parse failed:', id, e.message, '| Raw (first 200):', (dbMatch[1]||dbMatch[2]||'').trim().slice(0,200));
+            console.warn('[DataBlock] parse failed:', id, e.message);
+            console.warn('[DataBlock] Raw (first 500):', (dbMatch[1]||dbMatch[2]||'').trim().slice(0,500));
             // Attempt graceful recovery: try to extract verdictRow via regex even if full JSON is malformed
-            let recoveredBlock = { agent: id, kpis: [{ label: 'Analysis', value: '✓', sub: 'Full analysis in prose below', trend: 'flat', confidence: 'M' }], verdictRow: null };
+            let recoveredBlock = { agent: id, kpis: [], verdictRow: null, strategicTension: '', moves: [], segmentMap: [], revenueGaps: [], marketSignals: [], globalComps: [], competitorThreats: [] };
             try {
               const rawForRecovery = (dbMatch[1] || dbMatch[2] || '').trim();
-              const vMatch = rawForRecovery.match(/"verdictRow"\s*:\s*\{[^}]+\}/);
-              if (vMatch) {
-                const vParsed = JSON.parse('{' + vMatch[0] + '}');
-                recoveredBlock.verdictRow = vParsed.verdictRow;
+              // Try to extract each top-level field individually
+              const tryExtract = (key, isArray) => {
+                try {
+                  if (isArray) {
+                    const m = rawForRecovery.match(new RegExp('"' + key + '"\\s*:\\s*(\\[[\\s\\S]*?\\](?=\\s*,\\s*"[a-z]|\\s*\\}))'));
+                    if (m) return JSON.parse(m[1]);
+                  } else {
+                    const m = rawForRecovery.match(new RegExp('"' + key + '"\\s*:\\s*"([^"]*)"'));
+                    if (m) return m[1];
+                  }
+                } catch(e) {}
+                return null;
+              };
+              const st = tryExtract('strategicTension', false);
+              if (st) recoveredBlock.strategicTension = st;
+              const bold = tryExtract('boldStatement', false);
+              if (bold) recoveredBlock.boldStatement = bold;
+              const page1 = tryExtract('page1Summary', false);
+              if (page1) recoveredBlock.page1Summary = page1;
+              const posture = tryExtract('internationalPosture', false);
+              if (posture) recoveredBlock.internationalPosture = posture;
+              // For brief: also write whatever we recovered to sessionStorage
+              if (id === 'brief') {
+                try {
+                  sessionStorage.setItem('briefReady', '1');
+                  sessionStorage.setItem('briefDataBlock', JSON.stringify(recoveredBlock));
+                } catch(e) {}
               }
-              // Try to extract kpis array
-              const kMatch = rawForRecovery.match(/"kpis"\s*:\s*(\[[^\]]+\])/);
-              if (kMatch) {
-                const kParsed = JSON.parse(kMatch[1]);
-                recoveredBlock.kpis = kParsed;
-              }
-            } catch(recovErr) { /* recovery also failed — use defaults */ }
+            } catch(recovErr) {}
             if (!recoveredBlock.verdictRow) {
               recoveredBlock.verdictRow = { verdict: 'WATCH', finding: 'Analysis complete — see prose below for full findings', confidence: 'L' };
             }
@@ -1909,9 +1957,11 @@ export default function AdvisorSprintIntelligence() {
             }
           }
         }
-        // For brief: if no DATA_BLOCK found at all, still signal button to show
-        // so user knows brief ran but had no parseable output
+        // For brief: if no DATA_BLOCK found at all, log raw output and signal button
         if (id === 'brief' && !dbMatch) {
+          console.warn('[Brief] NO DATA_BLOCK found in model response. Raw text (first 500):');
+          console.warn(text.slice(0, 500));
+          console.warn('[Brief] Full text length:', text.length);
           try { sessionStorage.setItem('briefReady', '1'); } catch(e) {}
         }
         setResults(r => ({ ...r, [id]: cleanText }));
@@ -2218,21 +2268,9 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
     if (briefGenerating) return;
     setBriefGenerating(true);
     try {
-      // Resolve brief DATA_BLOCK — check sources in priority order:
-      // 1. React state (if still populated from this session)
-      // 2. Dedicated sessionStorage key (persists after sprint_${co} is cleared)
-      let resolvedDataBlocks = dataBlocks;
-      if (!dataBlocks['brief']?.agent) {
-        try {
-          const saved = sessionStorage.getItem('briefDataBlock');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            resolvedDataBlocks = { ...dataBlocks, brief: parsed };
-            console.log('[generateSaaSBrief] Loaded brief DATA_BLOCK from sessionStorage');
-          }
-        } catch(e) { console.warn('[generateSaaSBrief] sessionStorage read failed:', e.message); }
-      }
-      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks: resolvedDataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
+      // Same approach as consumer tool — just use React state directly
+      // By the time user clicks this button, React state is fully settled
+      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2332,7 +2370,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
                 {pdfGenerating ? 'Generating…' : '⬇ Full Report'}
               </button>
             )}
-            {(dataBlocks['brief']?.agent === 'brief' || dataBlocks['brief']?.strategicTension || dataBlocks['brief']?.moves?.length || (results['brief'] && results['brief'].length > 10) || sessionStorage.getItem('briefReady') === '1') && (
+            {results['brief'] && (
               <button onClick={generateSaaSBrief} disabled={briefGenerating} style={{ padding: '6px 16px', background: briefGenerating ? '#ffffff20' : N.blue, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: briefGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
                 {briefGenerating ? 'Generating…' : '⬇ Opportunity Brief'}
               </button>
