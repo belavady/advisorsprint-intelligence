@@ -2093,6 +2093,8 @@ REFRAME: "..." → "..." — how to sharpen the instruction`;
       setGapAnalysis('Gap analysis failed — run again or check console.');
     } finally {
       setGapAnalysisRunning(false);
+      // Signal to generateTracePDF wait loop that gap analysis is done
+      try { sessionStorage.setItem('gapAnalysisDone', '1'); } catch(e) {}
     }
   };
 
@@ -2252,12 +2254,21 @@ REFRAME: "..." → "..." — how to sharpen the instruction`;
   const generateTracePDF = async () => {
     if (tracePdfGenerating) return;
     // If gap analysis is still running, wait up to 60s for it to complete
+    // Use DOM polling not closure variable (closure captures stale value)
     if (gapAnalysisRunning) {
-      let waited = 0;
-      while (gapAnalysisRunning && waited < 60000) {
-        await new Promise(r => setTimeout(r, 1000));
-        waited += 1000;
-      }
+      await new Promise(resolve => {
+        let waited = 0;
+        const poll = setInterval(() => {
+          waited += 500;
+          // Check sessionStorage flag set by runGapAnalysis on completion
+          const done = sessionStorage.getItem('gapAnalysisDone') === '1';
+          if (done || waited >= 60000) {
+            clearInterval(poll);
+            sessionStorage.removeItem('gapAnalysisDone');
+            resolve();
+          }
+        }, 500);
+      });
     }
     setTracePdfGenerating(true);
     try {
