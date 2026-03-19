@@ -1130,7 +1130,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
         <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:70px;">NOW → 18MO</th>
         <th style="padding:5px 8px;text-align:center;font-size:6.5px;letter-spacing:.06em;font-family:monospace;width:40px;">PLAY</th>
       </tr></thead><tbody>`;
-    signals.slice(0,6).forEach((s, i) => {
+    signals.slice(0,4).forEach((s, i) => {
       const bg = i%2===0?'#fff':C.parchment;
       const nowCol = momentumCol[s.momentum] || C.inkMid;
       const futCol = momentumCol[s.months18] || C.inkMid;
