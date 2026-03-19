@@ -1024,11 +1024,11 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       const arr = item.arrDelta || 0;
       const arrStr = arr > 0 ? `+$${arr}M ARR` : item.delta ? '' : '';
       h += `<div style="border:1px solid ${C.sand};border-radius:4px;overflow:hidden;">
-        <div style="background:${C.parchment};padding:7px 10px;border-bottom:1px solid ${C.sand};">
+        <div style="background:${C.parchment};padding:5px 8px;border-bottom:1px solid ${C.sand};">
           <div style="font-size:8px;font-weight:800;color:${C.navy};white-space:normal;">${item.asset||''}</div>
           <div style="font-size:6.5px;color:${C.inkMid};margin-top:2px;line-height:1.3;white-space:normal;">${item.currentState||''}</div>
         </div>
-        <div style="background:#fff;padding:7px 10px;display:flex;flex-direction:column;gap:4px;">
+        <div style="background:#fff;padding:5px 8px;display:flex;flex-direction:column;gap:3px;">
           <div style="display:flex;align-items:center;gap:4px;">
             <div style="flex:1;height:1px;background:${C.sand};"></div>
             <span style="font-size:8px;color:${C.green};">▶</span>
@@ -1104,7 +1104,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       const ps = playShort[g.playType] || g.playType;
       const cc = g.confidence==='H'?C.green:g.confidence==='M'?C.amber:C.red;
       h += `<tr>
-        <td style="padding:5px 8px;background:${bg};border-left:3px solid ${pc.colour};">
+        <td style="padding:3px 6px;background:${bg};border-left:3px solid ${pc.colour};">
           <div style="font-weight:700;color:${C.navy};font-size:7.5px;white-space:normal;">${g.gap||''}</div>
         </td>
         <td style="padding:5px 8px;background:${bg};text-align:right;font-weight:800;font-size:9px;color:${C.navy};">$${g.arrGapM||'—'}M</td>
@@ -1144,8 +1144,8 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
           <div style="font-weight:700;color:${C.navy};">${s.signal||''}</div>
           ${s.headroomPct != null ? `<div style="margin-top:3px;background:${C.sand};border-radius:2px;height:3px;"><div style="background:${C.blue};width:${Math.min(s.headroomPct,100)}%;height:3px;border-radius:2px;"></div></div><div style="font-size:6px;color:${C.blue};margin-top:1px;">${s.headroomPct}% headroom</div>` : ''}
         </td>
-        <td style="padding:5px 8px;background:${bg};color:${C.inkMid};white-space:normal;">${s.evidence||''}</td>
-        <td style="padding:5px 8px;background:${bg};font-size:6.5px;color:${C.inkMid};white-space:normal;">${s.competitorPlay||s.evidence||''}</td>
+        <td style="padding:3px 6px;background:${bg};color:${C.inkMid};white-space:normal;">${s.evidence||''}</td>
+        <td style="padding:3px 6px;background:${bg};font-size:6.5px;color:${C.inkMid};white-space:normal;">${s.competitorPlay||s.evidence||''}</td>
         <td style="padding:5px 8px;background:${bg};text-align:center;">
           <div style="display:flex;align-items:center;gap:3px;">
             <div style="flex:1;background:${C.sand};border-radius:2px;height:4px;"><div style="background:${nowCol};width:${nowW}%;height:4px;border-radius:2px;"></div></div>
@@ -1163,47 +1163,55 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
 
   // ── RADAR ──────────────────────────────────────────────────────────────
   function renderRadar(axes) {
-    if (!axes || axes.length < 3) return '<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;">No radar data</div>';
+    if (!axes || axes.length < 3) return '<div style="height:180px;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;">No radar data</div>';
     const n = axes.length;
-    const CX=130, CY=115, R=85, LABEL_R=108;
+    const CX=110, CY=100, R=75, LABEL_R=93;
     const toRad = deg => (deg - 90) * Math.PI / 180;
     const pt = (val, i) => { const a=toRad((360/n)*i); const r=(val/100)*R; return [CX+r*Math.cos(a), CY+r*Math.sin(a)]; };
     const todayPts = axes.map((a,i) => pt(a.today||0, i));
     const futurePts = axes.map((a,i) => pt(a.future||0, i));
     const toPath = pts => pts.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+'Z';
-    let svg = `<svg viewBox="0 0 220 215" xmlns="http://www.w3.org/2000/svg" style="width:220px;height:210px;">`;
+    let svg = `<svg viewBox="0 0 220 205" xmlns="http://www.w3.org/2000/svg" style="width:220px;height:205px;">`;
     [20,40,60,80,100].forEach(pct => {
       const r=(pct/100)*R;
       const pts2=axes.map((_,i)=>{const a=toRad((360/n)*i);return `${(CX+r*Math.cos(a)).toFixed(1)},${(CY+r*Math.sin(a)).toFixed(1)}`;});
       svg += `<polygon points="${pts2.join(' ')}" fill="none" stroke="${C.sand}" stroke-width="0.8"/>`;
     });
     axes.forEach((_,i)=>{ const [x,y]=pt(100,i); svg += `<line x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${C.sand}" stroke-width="0.8"/>`; });
-    svg += `<path d="${toPath(todayPts)}" fill="${C.navy}25" stroke="${C.navy}" stroke-width="1.5"/>`;
-    svg += `<path d="${toPath(futurePts)}" fill="${C.blue}25" stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+    svg += `<path d="${toPath(todayPts)}" fill="${C.navy}30" stroke="${C.navy}" stroke-width="1.5"/>`;
+    svg += `<path d="${toPath(futurePts)}" fill="${C.blue}20" stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="4,2"/>`;
     axes.forEach((ax,i)=>{
       const angle=toRad((360/n)*i);
       const lx=CX+LABEL_R*Math.cos(angle); const ly=CY+LABEL_R*Math.sin(angle);
-      const anchor=Math.cos(angle)>0.1?'start':Math.cos(angle)<-0.1?'end':'middle';
+      const anchor=Math.cos(angle)>0.15?'start':Math.cos(angle)<-0.15?'end':'middle';
       const label=(ax.axis||'').slice(0,16);
       const words=label.split(' ');
-      const todayScore=Math.round(ax.today||0); const futureScore=Math.round(ax.future||0);
-      const delta=futureScore-todayScore;
-      const deltaStr=delta>0?`+${delta}`:`${delta}`;
-      const deltaCol=delta>0?C.navy:'#dc2626';
-      const isBottom=Math.sin(angle)>0.5;
-      const yOff=isBottom?8:0;
+      const isBottom=Math.sin(angle)>0.4;
+      const yOff=isBottom?9:0;
       if (words.length>1) {
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly-2+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words[0]}</text>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly+7+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words.slice(1).join(' ')}</text>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly+16+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly-1+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="8" font-weight="700" fill="${C.navy}" font-family="monospace">${words[0]}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+8+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="8" font-weight="700" fill="${C.navy}" font-family="monospace">${words.slice(1).join(' ')}</text>`;
       } else {
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly+3+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${label}</text>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly+12+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="6.5" font-weight="700" fill="${deltaCol}" font-family="monospace">${todayScore}→${futureScore} (${deltaStr})</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+3+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="8" font-weight="700" fill="${C.navy}" font-family="monospace">${label}</text>`;
       }
     });
     svg += '</svg>';
-    return svg;
+    // Score table below radar — more readable than tiny labels on chart
+    const scoreRows = axes.map(ax => {
+      const t = Math.round(ax.today||0);
+      const f = Math.round(ax.future||0);
+      const d = f - t;
+      const dStr = d > 0 ? `+${d}` : `${d}`;
+      const dCol = d > 0 ? C.green : C.red;
+      return `<tr>
+        <td style="font-size:6px;color:${C.inkMid};padding:1px 4px;font-family:monospace;">${(ax.axis||'').slice(0,18)}</td>
+        <td style="font-size:6px;font-weight:700;color:${C.navy};padding:1px 4px;text-align:center;">${t}</td>
+        <td style="font-size:6px;font-weight:700;color:${dCol};padding:1px 4px;text-align:center;">${dStr}</td>
+      </tr>`;
+    }).join('');
+    return svg + `<table style="width:100%;border-collapse:collapse;margin-top:4px;"><tbody>${scoreRows}</tbody></table>`;
   }
+
 
   // ── DIFFERENTIATION DURABILITY ─────────────────────────────────────────
   function renderDiffDurability(items) {
@@ -1371,12 +1379,12 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   ${renderTensionBanner(tension, moat, topChurnDriver)}
 
   ${strengthsDeltas.length ? `
-  <div style="margin-bottom:12px;">
+  <div style="margin-bottom:8px;">
     <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:6px;font-family:monospace;">WHAT'S WORKING — AND WHAT DOUBLING DOWN UNLOCKS</div>
     ${renderStrengthsDeltas(strengthsDeltas)}
   </div>` : ''}
 
-  <div style="margin-bottom:12px;">
+  <div style="margin-bottom:8px;">
     <div style="margin-bottom:6px;">
       <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">GAP VELOCITY — HOW FAST EACH GAP IS CLOSING AND WHO IS CLOSING IT</div>
       ${sectionHdrs.segmentMap ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.segmentMap}</div>` : ''}
@@ -1384,7 +1392,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     ${renderGapVelocity(segmentMap)}
   </div>
 
-  <div style="margin-bottom:12px;">
+  <div style="margin-bottom:8px;">
     <div style="margin-bottom:6px;">
       <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">REVENUE GAP ANALYSIS</div>
       ${sectionHdrs.revenueGaps ? `<div style="font-size:7.5px;color:${C.inkMid};font-style:italic;margin-top:2px;">${sectionHdrs.revenueGaps}</div>` : ''}
@@ -1410,7 +1418,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   <div style="background:${C.blueLight};border-radius:3px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px;">
     <div style="flex:1;">
       <div style="font-size:6px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};margin-bottom:3px;font-family:monospace;">SITUATION SUMMARY · THE CASE FOR ACTION</div>
-      <div style="font-size:8px;color:${C.navy};line-height:1.5;font-weight:500;">${db.page1Summary}</div>
+      <div style="font-size:7.5px;color:${C.navy};line-height:1.4;font-weight:500;">${db.page1Summary}</div>
     </div>
     <div style="flex-shrink:0;text-align:center;padding-left:12px;border-left:2px solid ${C.sand};">
       <div style="font-size:7px;color:${C.inkFaint};margin-bottom:2px;">continued</div>
