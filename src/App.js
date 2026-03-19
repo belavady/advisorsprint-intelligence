@@ -1165,13 +1165,13 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   function renderRadar(axes) {
     if (!axes || axes.length < 3) return '<div style="height:180px;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;">No radar data</div>';
     const n = axes.length;
-    const CX=110, CY=100, R=75, LABEL_R=93;
+    const CX=140, CY=105, R=80, LABEL_R=98;
     const toRad = deg => (deg - 90) * Math.PI / 180;
     const pt = (val, i) => { const a=toRad((360/n)*i); const r=(val/100)*R; return [CX+r*Math.cos(a), CY+r*Math.sin(a)]; };
     const todayPts = axes.map((a,i) => pt(a.today||0, i));
     const futurePts = axes.map((a,i) => pt(a.future||0, i));
     const toPath = pts => pts.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+'Z';
-    let svg = `<svg viewBox="0 0 220 205" xmlns="http://www.w3.org/2000/svg" style="width:220px;height:205px;">`;
+    let svg = `<svg viewBox="0 0 295 215" xmlns="http://www.w3.org/2000/svg" style="width:250px;height:182px;">`;
     [20,40,60,80,100].forEach(pct => {
       const r=(pct/100)*R;
       const pts2=axes.map((_,i)=>{const a=toRad((360/n)*i);return `${(CX+r*Math.cos(a)).toFixed(1)},${(CY+r*Math.sin(a)).toFixed(1)}`;});
@@ -1184,19 +1184,18 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       const angle=toRad((360/n)*i);
       const lx=CX+LABEL_R*Math.cos(angle); const ly=CY+LABEL_R*Math.sin(angle);
       const anchor=Math.cos(angle)>0.15?'start':Math.cos(angle)<-0.15?'end':'middle';
-      const label=(ax.axis||'').slice(0,16);
+      const label=(ax.axis||'').slice(0,18);
       const words=label.split(' ');
       const isBottom=Math.sin(angle)>0.4;
       const yOff=isBottom?9:0;
       if (words.length>1) {
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly-1+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="8" font-weight="700" fill="${C.navy}" font-family="monospace">${words[0]}</text>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly+8+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="8" font-weight="700" fill="${C.navy}" font-family="monospace">${words.slice(1).join(' ')}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly-1+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words[0]}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+8+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${words.slice(1).join(' ')}</text>`;
       } else {
-        svg += `<text x="${lx.toFixed(1)}" y="${(ly+3+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="8" font-weight="700" fill="${C.navy}" font-family="monospace">${label}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${(ly+3+yOff).toFixed(1)}" text-anchor="${anchor}" font-size="7" font-weight="700" fill="${C.navy}" font-family="monospace">${label}</text>`;
       }
     });
     svg += '</svg>';
-    // Score table below radar — more readable than tiny labels on chart
     const scoreRows = axes.map(ax => {
       const t = Math.round(ax.today||0);
       const f = Math.round(ax.future||0);
@@ -1204,13 +1203,14 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       const dStr = d > 0 ? `+${d}` : `${d}`;
       const dCol = d > 0 ? C.green : C.red;
       return `<tr>
-        <td style="font-size:6px;color:${C.inkMid};padding:1px 4px;font-family:monospace;">${(ax.axis||'').slice(0,18)}</td>
+        <td style="font-size:6px;color:${C.inkMid};padding:1px 4px;font-family:monospace;">${(ax.axis||'').slice(0,20)}</td>
         <td style="font-size:6px;font-weight:700;color:${C.navy};padding:1px 4px;text-align:center;">${t}</td>
         <td style="font-size:6px;font-weight:700;color:${dCol};padding:1px 4px;text-align:center;">${dStr}</td>
       </tr>`;
     }).join('');
     return svg + `<table style="width:100%;border-collapse:collapse;margin-top:4px;"><tbody>${scoreRows}</tbody></table>`;
   }
+
 
 
   // ── DIFFERENTIATION DURABILITY ─────────────────────────────────────────
@@ -1251,27 +1251,27 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
           <span style="font-size:7px;font-weight:800;color:#fff;letter-spacing:.08em;font-family:monospace;">${pcfg.icon} ${pcfg.label}</span>
           <span style="font-size:5.5px;color:rgba(255,255,255,.6);font-style:italic;">${pcfg.sub}</span>
         </div>
-        <div style="padding:5px 8px;flex:1;display:flex;flex-direction:column;gap:3px;">
+        <div style="padding:4px 7px;flex:1;display:flex;flex-direction:column;gap:2px;">
           <div style="display:flex;align-items:flex-start;gap:5px;">
             <span style="font-size:12px;color:${pcfg.colour};line-height:1;flex-shrink:0;">${numLabel}</span>
             <span style="font-size:8.5px;font-weight:800;color:${C.navy};line-height:1.2;white-space:normal;">${m.title||''}</span>
           </div>
-          <div style="font-size:6px;color:${C.inkMid};font-style:italic;white-space:normal;">${m.segment||''} · First revenue: <strong style="color:${C.navy};">${m.timeToRevenue||'TBD'}</strong></div>
+          <div style="font-size:5.5px;color:${C.inkMid};font-style:italic;white-space:normal;">${m.segment||''} · First revenue: <strong style="color:${C.navy};">${m.timeToRevenue||'TBD'}</strong></div>
           <div style="display:flex;align-items:baseline;gap:3px;">
             <span style="font-size:15px;font-weight:900;color:${C.navy};line-height:1;">$${m.arrImpactM||'?'}</span>
             <span style="font-size:6.5px;color:${C.inkFaint};">M ARR</span>
             <span style="background:${cc};color:#fff;font-size:5.5px;font-weight:700;padding:1px 3px;border-radius:2px;margin-left:3px;">${conf}</span>
           </div>
-          ${m.contrarian ? `<div style="font-size:7px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding:3px 5px;background:${C.blueLight};border-radius:0 3px 3px 0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+          ${m.contrarian ? `<div style="font-size:6.5px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding:2px 5px;background:${C.blueLight};border-radius:0 3px 3px 0;white-space:normal;overflow:hidden;>
             <span style="font-size:5.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.navy};display:block;font-family:monospace;">THE INSIGHT</span>
             ${m.contrarian}
           </div>` : ''}
-          ${m.pricingNote ? `<div style="font-size:6.5px;color:${C.purple};background:${C.purpleLight};padding:3px 5px;border-radius:3px;border-left:2px solid ${C.purple};white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+          ${m.pricingNote ? `<div style="font-size:6px;color:${C.purple};background:${C.purpleLight};padding:2px 5px;border-radius:3px;border-left:2px solid ${C.purple};white-space:normal;overflow:hidden;">
             <span style="font-size:5.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.purple};display:block;font-family:monospace;">PRICING FIX</span>
             ${m.pricingNote}
           </div>` : ''}
-          ${m.orgInstruction ? `<div style="margin-top:1px;"><span style="font-size:5.5px;font-weight:800;letter-spacing:.08em;color:${pcfg.colour};font-family:monospace;">ORG — </span><span style="font-size:6.5px;color:${C.inkMid};white-space:normal;">${m.orgInstruction}</span></div>` : ''}
-          <div style="font-size:6px;color:${C.inkFaint};border-top:1px solid ${C.sand};padding-top:3px;margin-top:auto;white-space:normal;">${m.evidence||''}</div>
+          ${m.orgInstruction ? `<div style="margin-top:1px;"><span style="font-size:5.5px;font-weight:800;letter-spacing:.08em;color:${pcfg.colour};font-family:monospace;">ORG — </span><span style="font-size:6px;color:${C.inkMid};white-space:normal;">${m.orgInstruction}</span></div>` : ''}
+          <div style="font-size:5.5px;color:${C.inkFaint};border-top:1px solid ${C.sand};padding-top:2px;margin-top:auto;white-space:normal;">${m.evidence||''}</div>
         </div>
       </div>`;
     }).join('');
@@ -1285,15 +1285,15 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
       comps.slice(0,3).map(c => {
         const mc = mktCol[c.market] || C.navy;
-        return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${mc};">
+        return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:5px 8px;border-top:2.5px solid ${mc};">
           <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
             <span style="background:${mc};color:#fff;font-size:6px;font-weight:800;padding:2px 5px;border-radius:2px;font-family:monospace;">${c.market||'?'}</span>
             <span style="font-size:8px;font-weight:800;color:${C.navy};white-space:normal;">${c.company||''}</span>
           </div>
           <div style="font-size:6.5px;color:${C.inkFaint};margin-bottom:3px;">At ${c.stage||'comparable stage'}</div>
-          <div style="font-size:7px;color:${C.inkMid};line-height:1.3;margin-bottom:3px;white-space:normal;">${c.whatHappened||''}</div>
+          <div style="font-size:6.5px;color:${C.inkMid};line-height:1.3;margin-bottom:2px;white-space:normal;">${c.whatHappened||''}</div>
           ${c.expansionNote ? `<div style="font-size:6.5px;color:${C.green};font-weight:600;margin-bottom:3px;white-space:normal;">↗ ${c.expansionNote}</div>` : ''}
-          <div style="font-size:7px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding-left:5px;white-space:normal;">${c.prediction||''}</div>
+          <div style="font-size:6.5px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding-left:4px;white-space:normal;">${c.prediction||''}</div>
         </div>`;
       }).join('') + '</div>';
   }
@@ -1303,10 +1303,10 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     if (!comps.length) return '';
     return `<div style="display:grid;grid-template-columns:repeat(${Math.min(comps.length,3)},1fr);gap:8px;">` +
       comps.slice(0,3).map(c => `
-        <div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:8px 10px;border-top:2.5px solid ${C.red};">
-          <div style="font-size:9px;font-weight:800;color:${C.navy};margin-bottom:3px;white-space:normal;">${c.name||''}</div>
-          <div style="font-size:14px;font-weight:900;color:${C.red};margin-bottom:3px;line-height:1;">${c.arrEst||'?'}</div>
-          <div style="font-size:7px;color:${C.inkMid};margin-bottom:2px;line-height:1.3;white-space:normal;">Targeting: ${c.targeting||''}</div>
+        <div style="background:#fff;border:1px solid ${C.sand};border-radius:3px;padding:6px 8px;border-top:2.5px solid ${C.red};">
+          <div style="font-size:8px;font-weight:800;color:${C.navy};margin-bottom:2px;white-space:normal;">${c.name||''}</div>
+          <div style="font-size:12px;font-weight:900;color:${C.red};margin-bottom:2px;line-height:1;">${c.arrEst||'?'}</div>
+          <div style="font-size:6.5px;color:${C.inkMid};margin-bottom:2px;line-height:1.3;white-space:normal;">Targeting: ${c.targeting||''}</div>
           <div style="font-size:7px;color:${C.inkFaint};">Threat by: <strong style="color:${C.red};">${c.threatBy||'TBD'}</strong></div>
         </div>`).join('') + '</div>';
   }
