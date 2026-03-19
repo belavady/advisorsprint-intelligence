@@ -1,3 +1,60 @@
+  const generateSaaSBrief = async () => {
+    if (briefGenerating) return;
+    setBriefGenerating(true);
+    try {
+      // Resolve brief DATA_BLOCK — try all sources in order
+      let resolvedDataBlocks = { ...dataBlocks };
+
+      // Source 1: React state (best case — already parsed)
+      if (!resolvedDataBlocks['brief']?.agent) {
+        // Source 2: sessionStorage briefDataBlock (written by runAgent on parse success)
+        try {
+          const saved = sessionStorage.getItem('briefDataBlock');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed?.agent) resolvedDataBlocks = { ...resolvedDataBlocks, brief: parsed };
+          }
+        } catch(e) {}
+      }
+
+      // Source 3: Re-parse from raw results text (most reliable fallback)
+      if (!resolvedDataBlocks['brief']?.agent && results['brief']) {
+        try {
+          const raw = results['brief'];
+          const m = raw.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
+          if (m) {
+            const jsonStr = (m[1]||m[2]||m[3]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
+            const parsed = JSON.parse(repairJson(jsonStr));
+            if (parsed?.agent) resolvedDataBlocks = { ...resolvedDataBlocks, brief: parsed };
+          }
+        } catch(e) { console.warn('[generateSaaSBrief] re-parse fallback failed:', e.message); }
+      }
+
+      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks: resolvedDataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
+      const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html, company, acquirer }),
+        signal: AbortSignal.timeout(120000),
+      });
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({ error: 'Brief generation failed' }));
+        throw new Error(err.error || `Server error ${pdfRes.status}`);
+      }
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${company.replace(/\s+/g,'-')}_OpportunityBrief_${new Date().toISOString().slice(0,10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      alert(`Brief generation failed: ${e.message}`);
+    } finally {
+      setBriefGenerating(false);
+    }
+  }
+
 import { useState, useRef, useCallback } from "react";
 
 const API_URL = "https://advisorsprint-api.onrender.com/api/claude";
@@ -2109,7 +2166,7 @@ export default function AdvisorSprintIntelligence() {
           const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
           if (dbMatch) {
             const raw = (dbMatch[1] || dbMatch[2] || dbMatch[3] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
-            const briefDataBlock = JSON.parse(raw);
+            const briefDataBlock = JSON.parse(repairJson(raw));
             // Only auto-generate if brief has real content — skip if just stub/recovery block
             if (!briefDataBlock.strategicTension && !briefDataBlock.moves?.length) {
               console.warn('[AutoBrief] Brief DATA_BLOCK is sparse — skipping auto-generation. Use button to retry.');
@@ -2119,7 +2176,7 @@ export default function AdvisorSprintIntelligence() {
                 if (typeof v !== 'string') return [k, v];
                 const m = v.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
                 if (!m) return [k, null];
-                try { return [k, JSON.parse((m[1]||m[2]||m[3]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
+                try { return [k, JSON.parse(repairJson((m[1]||m[2]||m[3]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim()))]; }
                 catch(e) { return [k, null]; }
               }).filter(([,v]) => v !== null)
             ), brief: briefDataBlock };
@@ -2224,13 +2281,13 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
         const dbMatch = briefRaw.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
         if (dbMatch) {
           const raw = (dbMatch[1] || dbMatch[2] || '').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
-          const briefDataBlock = JSON.parse(raw);
+          const briefDataBlock = JSON.parse(repairJson(raw));
           const allDataBlocks = { ...Object.fromEntries(
             Object.entries(w1texts).map(([k, v]) => {
               if (typeof v !== 'string') return [k, v];
               const m = v.match(/<<<DATA_BLOCK>>>\s*```json([\s\S]*?)```\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
               if (!m) return [k, null];
-              try { return [k, JSON.parse((m[1]||m[2]||m[3]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim())]; }
+              try { return [k, JSON.parse(repairJson((m[1]||m[2]||m[3]||'').trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim()))]; }
               catch(e) { return [k, null]; }
             }).filter(([,v]) => v !== null)
           ), brief: briefDataBlock };
@@ -2300,9 +2357,19 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
     if (briefGenerating) return;
     setBriefGenerating(true);
     try {
-      // Same approach as consumer tool — just use React state directly
-      // By the time user clicks this button, React state is fully settled
-      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
+      // Resolve brief DATA_BLOCK — React state may be stale if clicked after page settle
+      // Priority: 1) React state (settled), 2) sessionStorage briefDataBlock (always fresh)
+      let resolvedDataBlocks = dataBlocks;
+      if (!dataBlocks['brief']?.agent) {
+        try {
+          const saved = sessionStorage.getItem('briefDataBlock');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            resolvedDataBlocks = { ...dataBlocks, brief: parsed };
+          }
+        } catch(e) { console.warn('[Brief] sessionStorage fallback failed:', e.message); }
+      }
+      const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks: resolvedDataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
