@@ -905,6 +905,31 @@ function renderSaaSAgentVisuals(agentId, db) {
 
 
 // ── SAAS OPPORTUNITY BRIEF HTML BUILDER ──────────────────────────────────────
+// ── JSON REPAIR UTILITY — handles all known model output malformations ────────
+function repairJson(raw) {
+  let s = raw
+    .replace(/\/\/[^\n\r]*/g, '')        // remove // comments before newline collapse
+    .replace(/\r\n|\r|\n/g, ' ')          // literal newlines → space
+    .replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '') // control chars
+    .replace(/,(\s*[}\]])/g, '$1')          // trailing commas
+    .replace(/\[\s*\.\.\.\s*\]/g, '[]') // [...] → []
+    .replace(/\{\s*\.\.\.\s*\}/g, '{}'); // {...} → {}
+  const start = s.indexOf('{');
+  if (start === -1) return s;
+  let depth = 0, end = -1, inString = false, escape = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\' && inString) { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (end !== -1) s = s.slice(start, end + 1);
+  return s;
+}
+
 function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks, companyMode='standalone' }) {
   const db = dataBlocks['brief'] || {};
   const raw = results['brief'] || '';
@@ -1146,7 +1171,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     const todayPts = axes.map((a,i) => pt(a.today||0, i));
     const futurePts = axes.map((a,i) => pt(a.future||0, i));
     const toPath = pts => pts.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+'Z';
-    let svg = `<svg viewBox="0 0 260 250" xmlns="http://www.w3.org/2000/svg" style="width:260px;height:250px;">`;
+    let svg = `<svg viewBox="0 0 220 215" xmlns="http://www.w3.org/2000/svg" style="width:220px;height:210px;">`;
     [20,40,60,80,100].forEach(pct => {
       const r=(pct/100)*R;
       const pts2=axes.map((_,i)=>{const a=toRad((360/n)*i);return `${(CX+r*Math.cos(a)).toFixed(1)},${(CY+r*Math.sin(a)).toFixed(1)}`;});
@@ -1204,7 +1229,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     </div>`;
   }
 
-  // ── MOVE CARDS (with contrarian + companyHas/Needs + pricingNote) ──────
+  // ── MOVE CARDS ──────────────────────────────────────────────────────────
   function renderMoveCards(moves) {
     if (!moves.length) return '';
     const confCol = c => ({CONFIRMED:C.green,DERIVED:C.blue,ESTIMATED:C.amber,'SIGNAL ONLY':C.red})[c]||C.amber;
@@ -1213,39 +1238,37 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
       const conf = m.confidence || 'ESTIMATED';
       const cc = confCol(conf);
       const numLabel = ['①','②','③'][i]||`${i+1}`;
-      const filters = Array.isArray(m.filters)?m.filters:[];
       return `<div style="background:#fff;border:1px solid ${C.sand};border-radius:4px;overflow:hidden;display:flex;flex-direction:column;">
-        <div style="background:${pcfg.colour};padding:6px 10px;display:flex;align-items:center;gap:6px;">
-          <span style="font-size:7.5px;font-weight:800;color:#fff;letter-spacing:.08em;font-family:monospace;">${pcfg.icon} ${pcfg.label}</span>
-          <span style="font-size:6px;color:rgba(255,255,255,.6);font-style:italic;">${pcfg.sub}</span>
+        <div style="background:${pcfg.colour};padding:4px 8px;display:flex;align-items:center;gap:5px;">
+          <span style="font-size:7px;font-weight:800;color:#fff;letter-spacing:.08em;font-family:monospace;">${pcfg.icon} ${pcfg.label}</span>
+          <span style="font-size:5.5px;color:rgba(255,255,255,.6);font-style:italic;">${pcfg.sub}</span>
         </div>
-        <div style="padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:4px;">
-          <div style="display:flex;align-items:flex-start;gap:6px;">
-            <span style="font-size:13px;color:${pcfg.colour};line-height:1;flex-shrink:0;">${numLabel}</span>
-            <span style="font-size:9px;font-weight:800;color:${C.navy};line-height:1.2;white-space:normal;">${m.title||''}</span>
+        <div style="padding:5px 8px;flex:1;display:flex;flex-direction:column;gap:3px;">
+          <div style="display:flex;align-items:flex-start;gap:5px;">
+            <span style="font-size:12px;color:${pcfg.colour};line-height:1;flex-shrink:0;">${numLabel}</span>
+            <span style="font-size:8.5px;font-weight:800;color:${C.navy};line-height:1.2;white-space:normal;">${m.title||''}</span>
           </div>
-          <div style="font-size:6.5px;color:${C.inkMid};font-style:italic;white-space:normal;">${m.segment||''}</div>
-          <div style="display:flex;align-items:baseline;gap:4px;">
-            <span style="font-size:16px;font-weight:900;color:${C.navy};line-height:1;">$${m.arrImpactM||'?'}</span>
-            <span style="font-size:7px;color:${C.inkFaint};">M ARR</span>
-            <span style="background:${cc};color:#fff;font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;margin-left:4px;">${conf}</span>
+          <div style="font-size:6px;color:${C.inkMid};font-style:italic;white-space:normal;">${m.segment||''} · First revenue: <strong style="color:${C.navy};">${m.timeToRevenue||'TBD'}</strong></div>
+          <div style="display:flex;align-items:baseline;gap:3px;">
+            <span style="font-size:15px;font-weight:900;color:${C.navy};line-height:1;">$${m.arrImpactM||'?'}</span>
+            <span style="font-size:6.5px;color:${C.inkFaint};">M ARR</span>
+            <span style="background:${cc};color:#fff;font-size:5.5px;font-weight:700;padding:1px 3px;border-radius:2px;margin-left:3px;">${conf}</span>
           </div>
-          <div style="font-size:7px;color:${C.inkFaint};">First revenue: <strong style="color:${C.navy};">${m.timeToRevenue||'TBD'}</strong></div>
-          ${m.contrarian ? `<div style="font-size:7.5px;color:${C.blue};font-weight:600;line-height:1.4;border-left:2px solid ${C.blue};padding-left:5px;background:${C.blueLight};padding:4px 5px 4px 7px;border-radius:0 3px 3px 0;white-space:normal;">
-            <span style="font-size:6px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.navy};display:block;margin-bottom:2px;font-family:monospace;">THE INSIGHT</span>
+          ${m.contrarian ? `<div style="font-size:7px;color:${C.blue};font-weight:600;line-height:1.3;border-left:2px solid ${C.blue};padding:3px 5px;background:${C.blueLight};border-radius:0 3px 3px 0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+            <span style="font-size:5.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.navy};display:block;font-family:monospace;">THE INSIGHT</span>
             ${m.contrarian}
-          </div>` : (m.rationale ? `<div style="font-size:7.5px;color:${C.navy};font-weight:600;line-height:1.4;border-left:2px solid ${pcfg.colour};padding-left:5px;white-space:normal;">${m.rationale}</div>` : '')}
-          ${m.pricingNote ? `<div style="font-size:7px;color:${C.purple};background:${C.purpleLight};padding:4px 7px;border-radius:3px;border-left:2px solid ${C.purple};white-space:normal;">
-            <span style="font-size:6px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.purple};display:block;margin-bottom:1px;font-family:monospace;">PRICING FIX</span>
+          </div>` : ''}
+          ${m.pricingNote ? `<div style="font-size:6.5px;color:${C.purple};background:${C.purpleLight};padding:3px 5px;border-radius:3px;border-left:2px solid ${C.purple};white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+            <span style="font-size:5.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${C.purple};display:block;font-family:monospace;">PRICING FIX</span>
             ${m.pricingNote}
           </div>` : ''}
-          ${m.orgInstruction ? `<div style="margin-top:2px;"><div style="font-size:6px;font-weight:800;letter-spacing:.08em;color:${pcfg.colour};margin-bottom:2px;font-family:monospace;">ORG CHANGE</div><div style="font-size:7px;color:${C.inkMid};white-space:normal;">${m.orgInstruction}</div></div>` : ''}
-          ${m.mechanism ? `<div style="font-size:6.5px;color:${C.inkFaint};white-space:normal;"><span style="font-weight:700;color:${C.inkMid};">Motion:</span> ${m.mechanism}</div>` : ''}
-          <div style="font-size:6.5px;color:${C.inkFaint};border-top:1px solid ${C.sand};padding-top:4px;margin-top:auto;white-space:normal;">${m.evidence||''}</div>
+          ${m.orgInstruction ? `<div style="margin-top:1px;"><span style="font-size:5.5px;font-weight:800;letter-spacing:.08em;color:${pcfg.colour};font-family:monospace;">ORG — </span><span style="font-size:6.5px;color:${C.inkMid};white-space:normal;">${m.orgInstruction}</span></div>` : ''}
+          <div style="font-size:6px;color:${C.inkFaint};border-top:1px solid ${C.sand};padding-top:3px;margin-top:auto;white-space:normal;">${m.evidence||''}</div>
         </div>
       </div>`;
     }).join('');
   }
+
 
   // ── GLOBAL COMP STRIP ──────────────────────────────────────────────────
   function renderGlobalComps(comps) {
@@ -1404,7 +1427,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
 
   // ── ASSEMBLE PAGE 2 ────────────────────────────────────────────────────
   const page2 = `<div class="page" style="${pageStyle}">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid ${C.sand};">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid ${C.sand};">
     <div>
       <div style="font-size:8px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:${C.blue};font-family:monospace;">WHERE TO PLAY · HOW TO WIN</div>
       <div style="font-size:16px;font-weight:800;color:${C.navy};">${company} · 18-Month Action Plan</div>
@@ -1418,12 +1441,12 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     </div>
   </div>
 
-  ${tension ? `<div style="background:${C.navy};border-radius:4px;padding:12px 16px;margin-bottom:14px;">
+  ${tension ? `<div style="background:${C.navy};border-radius:4px;padding:7px 14px;margin-bottom:6px;">
     <div style="font-size:6.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;font-family:monospace;">THE STRATEGIC TENSION</div>
     <div style="font-size:11px;font-weight:600;color:#fff;line-height:1.6;font-style:italic;">${tension}</div>
   </div>` : ''}
 
-  <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:14px;">
+  <div style="display:grid;grid-template-columns:260px 1fr;gap:10px;margin-bottom:6px;">
     <div>
       <div style="margin-bottom:6px;">
         <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.navy};font-family:monospace;">STRATEGIC POSITION GAP</div>
@@ -1453,7 +1476,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     </div>
   </div>
 
-  ${categoryRead ? `<div style="display:grid;grid-template-columns:1fr 90px 110px;gap:0;background:#fff;border:1px solid ${C.sand};border-left:3px solid ${C.blue};border-radius:0 3px 3px 0;padding:7px 12px;margin-bottom:10px;align-items:center;">
+  ${categoryRead ? `<div style="display:grid;grid-template-columns:1fr 90px 110px;gap:0;background:#fff;border:1px solid ${C.sand};border-left:3px solid ${C.blue};border-radius:0 3px 3px 0;padding:5px 10px;margin-bottom:6px;align-items:center;">
     <div>
       <div style="font-size:6px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:3px;font-family:monospace;">GLOBAL CATEGORY CONTEXT</div>
       <div style="font-size:7px;color:${C.navy};line-height:1.4;font-weight:600;">${categoryRead.globalTrend||''}</div>
@@ -1476,14 +1499,14 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
   </div>` : ''}
 
   ${globalComps.length ? `
-  <div style="margin-bottom:12px;">
-    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.blue};font-family:monospace;">${intlPosture==='DOMESTIC'?'COMPARABLE TRAJECTORIES — STRATEGIC MIRRORS':'GLOBAL COMP SIGNAL — PATTERN MATCH'}</div>
+  <div style="margin-bottom:6px;">
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.blue};margin-bottom:4px;padding-bottom:3px;border-bottom:1.5px solid ${C.blue};font-family:monospace;">${intlPosture==='DOMESTIC'?'COMPARABLE TRAJECTORIES — STRATEGIC MIRRORS':'GLOBAL COMP SIGNAL — PATTERN MATCH'}</div>
     ${renderGlobalComps(globalComps)}
   </div>` : ''}
 
   ${competitors.length ? `
-  <div style="margin-bottom:12px;">
-    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.red};margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid ${C.red};font-family:monospace;">IF YOU DON'T MOVE — THEY WILL</div>
+  <div style="margin-bottom:6px;">
+    <div style="font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${C.red};margin-bottom:4px;padding-bottom:3px;border-bottom:1.5px solid ${C.red};font-family:monospace;">IF YOU DON'T MOVE — THEY WILL</div>
     ${renderCompetitorThreats(competitors)}
   </div>` : ''}
 
@@ -1898,8 +1921,7 @@ export default function AdvisorSprintIntelligence() {
             const raw = (dbMatch[1] || dbMatch[2] || dbMatch[3] || '').trim();
             const cleaned = raw.replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'').trim();
             // Sanitise: remove control characters that break JSON.parse
-            const sanitised = cleaned.replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '');
-            const parsed = JSON.parse(sanitised);
+            const parsed = JSON.parse(repairJson(cleaned));
             setDataBlocks(d => ({ ...d, [id]: parsed }));
             // For brief: persist parsed DATA_BLOCK and flag to sessionStorage
             // so the manual button can access it even after sprint_${co} is cleared
