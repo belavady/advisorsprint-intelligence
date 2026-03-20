@@ -974,7 +974,7 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
     DEFEND:    { colour:C.red,    icon:'◇', label:'DEFEND',    sub:'Protect before expanding' },
   };
   const playShort = { SCALE:'SCL', TRANSFORM:'TRF', DEFEND:'DEF' };
-  const pageStyle = `width:794px;min-height:1123px;background:#fff;padding:36px;box-sizing:border-box;position:relative;font-family:'Instrument Sans',sans-serif;color:${C.ink};`;
+  const pageStyle = `width:794px;min-height:1120px;max-height:1122px;overflow:visible;background:#fff;padding:36px;box-sizing:border-box;position:relative;font-family:'Instrument Sans',sans-serif;color:${C.ink};`;
 
   // ── KPI STRIP ──────────────────────────────────────────────────────────
   function renderKPIs(kpis) {
@@ -1534,8 +1534,9 @@ function buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlo
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=Instrument+Sans:wght@400;600;700;800&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet"/>
 <style>
   @page { size: A4; margin: 0; }
-  body { margin: 0; padding: 0; }
-  .page { page-break-after: always; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-size: 14px; -webkit-text-size-adjust: none; text-size-adjust: none; }
+  .page { page-break-after: always; page-break-inside: avoid; width: 794px; overflow: hidden; }
   .page:last-child { page-break-after: auto; }
 </style>
 </head><body>
