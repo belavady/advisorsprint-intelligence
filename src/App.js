@@ -1819,6 +1819,9 @@ export default function AdvisorSprintIntelligence() {
   const [briefGenerating, setBriefGenerating] = useState(false);
   const [retryingBrief, setRetryingBrief] = useState(false);
   const [retryingSynopsis, setRetryingSynopsis] = useState(false);
+  const toolLogsRef = useRef({});  // synchronous mirror of toolLogs — avoids stale closure in sessionStorage writes
+  const [toolLogs, setToolLogs] = useState({});         // per-agent search logs for trace PDF
+  const [thinkingBlocks, setThinkingBlocks] = useState({}); // synopsis + brief thinking traces
   const [sources, setSources] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [elapsed, setElapsed] = useState(0);
@@ -1833,27 +1836,36 @@ export default function AdvisorSprintIntelligence() {
       return `<<<DATA_BLOCK>>>\n{"agent":"${agentId}","kpis":[{"label":"Test","value":"OK","sub":"mock","trend":"up","confidence":"M"}],"verdictRow":{"verdict":"WATCH","finding":"Mock mode — no real data","confidence":"M"}}\n<<<END_DATA_BLOCK>>>\n\nMock analysis for ${agentId}.`;
     }
 
-    const attemptFetch = () => fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-tool-name': 'advisor-intelligence', 'Cache-Control': 'no-store' },
-      cache: 'no-store',
-      signal,
-      body: JSON.stringify({ prompt, agentId, market: 'US', mode: 'saas' }),
-    });
+    // Up to 2 attempts covering both fetch + full stream.
+    // Only retries on pure network drops (ERR_NETWORK_CHANGED, QUIC, WiFi handoff).
+    // API errors (rate limit, billing, server errors) are NOT retried client-side — server handles those.
+    const MAX_NET_ATTEMPTS = 2;
+    const RETRY_DELAYS = [8000]; // 8s before attempt 2
+    let fullText = '';
 
-    const runWithRetry = async (attempt = 1) => {
+    for (let attempt = 1; attempt <= MAX_NET_ATTEMPTS; attempt++) {
+      if (signal.aborted) break;
+      if (attempt > 1) {
+        const delay = RETRY_DELAYS[attempt - 2];
+        console.warn(`[${agentId}] Network retry ${attempt}/${MAX_NET_ATTEMPTS} in ${delay/1000}s…`);
+        setStatuses(s => ({ ...s, [agentId]: `network error — retrying (${attempt-1}/${MAX_NET_ATTEMPTS-1})…` }));
+        await new Promise(r => setTimeout(r, delay));
+        if (signal.aborted) break;
+      }
+
       let res;
       try {
-        res = await attemptFetch();
-      } catch (networkErr) {
-        if (signal.aborted) throw networkErr;
-        if (attempt >= 5) throw networkErr;
-        const retryDelay = networkErr.message?.includes('QUIC') ? 3000 : 10000;
-        console.warn(`[${agentId}] Fetch failed (attempt ${attempt}/5), retrying in ${retryDelay/1000}s:`, networkErr.message);
-        setStatuses(s => ({ ...s, [agentId]: `retrying… (${attempt}/5)` }));
-        await new Promise(r => setTimeout(r, retryDelay));
-        if (signal.aborted) throw networkErr;
-        return runWithRetry(attempt + 1);
+        res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tool-name': 'advisor-intelligence', 'Cache-Control': 'no-store' },
+          cache: 'no-store',
+          signal,
+          body: JSON.stringify({ prompt, agentId, market: 'US', mode: 'saas' }),
+        });
+      } catch (fetchErr) {
+        if (signal.aborted) throw fetchErr;
+        if (attempt === MAX_NET_ATTEMPTS) throw fetchErr;
+        continue; // retry
       }
 
       if (!res.ok) {
@@ -1861,10 +1873,11 @@ export default function AdvisorSprintIntelligence() {
         throw new Error(err || `Server error: ${res.status}`);
       }
 
+      let streamFailed = false;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullText = '';
+      fullText = '';
 
       try {
         while (true) {
@@ -1880,8 +1893,13 @@ export default function AdvisorSprintIntelligence() {
               const event = JSON.parse(line.slice(6));
               if (event.type === 'chunk') fullText += event.text;
               if (event.type === 'searching') setStatuses(s => ({ ...s, [agentId]: `searching: ${event.query.slice(0,40)}…` }));
+              if (event.type === 'retrying')  setStatuses(s => ({ ...s, [agentId]: event.message || 'API overloaded — retrying…' }));
+              if (event.type === 'thinking')  setThinkingBlocks(t => ({ ...t, [event.agentId]: event.text }));
+              if (event.type === 'toollog') {
+                toolLogsRef.current = { ...toolLogsRef.current, [event.agentId]: event.log };
+                setToolLogs(l => ({ ...l, [event.agentId]: event.log }));
+              }
               if (event.type === 'done') fullText = event.text || fullText;
-
               if (event.type === 'source' && event.url) {
                 setSources(prev => {
                   if (prev.find(s => s.url === event.url)) return prev;
@@ -1897,21 +1915,24 @@ export default function AdvisorSprintIntelligence() {
         }
       } catch (streamErr) {
         reader.cancel().catch(() => {});
-        // Mid-stream QUIC drop — retry if we haven't hit limit
-        if (!signal.aborted && attempt < 3 && (streamErr.message?.includes('QUIC') || streamErr.message?.includes('network') || streamErr.name === 'TypeError')) {
-          console.warn(`[${agentId}] Stream dropped (attempt ${attempt}/5), retrying in 3s:`, streamErr.message);
-          setStatuses(s => ({ ...s, [agentId]: `stream retry… (${attempt}/5)` }));
-          await new Promise(r => setTimeout(r, 3000));
-          if (signal.aborted) throw streamErr;
-          return runWithRetry(attempt + 1);
+        if (signal.aborted) throw streamErr;
+        const isNetworkDrop = streamErr.message?.includes('network') ||
+          streamErr.message?.includes('Network') ||
+          streamErr.message?.includes('ERR_') ||
+          streamErr.message?.includes('QUIC') ||
+          (streamErr.name === 'TypeError' && !streamErr.message?.includes('rate') &&
+           !streamErr.message?.includes('credit') && !streamErr.message?.includes('billing'));
+        if (attempt < MAX_NET_ATTEMPTS && isNetworkDrop) {
+          streamFailed = true;
+        } else {
+          throw streamErr;
         }
-        throw streamErr;
       }
 
-      return fullText;
-    };
+      if (!streamFailed) break;
+    } // end retry loop
 
-    return runWithRetry();
+    return fullText;
   }, [setSources, setStatuses]);
 
   // ── runAgent ────────────────────────────────────────────────────────────────
@@ -2029,6 +2050,9 @@ export default function AdvisorSprintIntelligence() {
     setResults({});
     setDataBlocks({});
     setSources([]);
+    setToolLogs({});
+    setThinkingBlocks({});
+    toolLogsRef.current = {};
     try {
       sessionStorage.removeItem('briefReady');
       sessionStorage.removeItem('briefDataBlock');
@@ -2057,8 +2081,20 @@ export default function AdvisorSprintIntelligence() {
       const w1texts = {};
       const ALL_AGENTS = testMode ? ['market'] : [...W1, ...W2, 'synopsis', 'brief'];
 
+      let totalApiCalls = 0;          // guard against runaway retry loops
+      const MAX_SPRINT_API_CALLS = 16; // 11 agents + 2 retries headroom + synopsis/brief retries
+
       for (const id of ALL_AGENTS) {
         if (signal.aborted) break;
+
+        totalApiCalls++;
+        if (totalApiCalls > MAX_SPRINT_API_CALLS) {
+          console.error(`[Sprint] API call limit reached (${totalApiCalls}) — aborting to prevent runaway spend`);
+          alert(`Safety stop: the sprint made more than ${MAX_SPRINT_API_CALLS} API calls, which may indicate a retry loop. The sprint has been stopped to protect your credits.`);
+          abortRef.current?.abort();
+          setAppState("error");
+          return;
+        }
         setStatuses(s => ({ ...s, [id]: "running" }));
 
         let ctx_for_agent = {};
@@ -2133,14 +2169,416 @@ export default function AdvisorSprintIntelligence() {
         } catch(parseErr) {
           console.warn('[AutoBrief] Could not parse brief data block:', parseErr.message);
         }
-        // Clear sessionStorage now that brief + gap triggers have read from it
-        try { sessionStorage.removeItem(`sprint_${company.trim()}`); } catch(e) {}
+        // Do NOT clear sprint sessionStorage — trace PDF re-parse needs it
+        // Persist raw agent text + toolLogs after every agent so trace PDF can re-parse
+        try {
+          sessionStorage.setItem(`sprint_${co}`, JSON.stringify(w1texts));
+          sessionStorage.setItem(`toolLogs_${co}`, JSON.stringify(toolLogsRef.current));
+        } catch(e) { console.warn('[sessionStorage] write failed:', e.message); }
       }
     } catch(e) {
       console.error("Sprint error:", e);
       setAppState("error");
     } finally {
       if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+
+  // ── BUILD SAAS TRACE PDF HTML ────────────────────────────────────────────
+  const buildSaaSTracePdfHtml = (co, acq, sector, stage, ctx, allDataBlocks, allThinking, allToolLogs, elapsed) => {
+    const date = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    const navy = '#0b1829', blue = '#2563eb', purple = '#7c3aed', amber = '#d97706', green = '#059669';
+    const confColor = v => v==='H'?green:v==='M'?amber:'#dc2626';
+    const confBg    = v => v==='H'?'#dcfce7':v==='M'?'#fef3c7':'#fee2e2';
+
+    // SaaS agent dependency map (no framing agent)
+    const AGENT_INPUTS = {
+      market:     [],
+      product:    [],
+      gtm:        [],
+      revenue:    [],
+      customer:   [],
+      competitive:[],
+      funding:    ['market','product','gtm','revenue','customer','competitive'],
+      pricing:    ['market','product','gtm','revenue','customer','competitive'],
+      intl:       ['market','product','gtm','revenue','customer','competitive'],
+      synopsis:   ['market','product','gtm','revenue','customer','competitive','funding','pricing','intl'],
+      brief:      ['market','product','gtm','revenue','customer','competitive','funding','pricing','intl','synopsis'],
+    };
+    const AGENT_SHORT = {
+      market:'Market', product:'Product', gtm:'GTM', revenue:'Revenue',
+      customer:'Customer', competitive:'Competitive',
+      funding:'Funding', pricing:'Pricing', intl:"Int'l",
+      synopsis:'Synopsis', brief:'Brief',
+    };
+    const AGENT_WAVE = {
+      market:1, product:1, gtm:1, revenue:1, customer:1, competitive:1,
+      funding:2, pricing:2, intl:2, synopsis:3, brief:4,
+    };
+
+    const CONTRADICTION_KW = [
+      'however','but ','contradict','disagree','tension','conflict','inconsistent',
+      'discrepancy','conflicts with','at odds','diverges','on the other hand',
+      'disputes','challenges the','not align','rather than',
+      'whereas','despite','although','nevertheless','yet ','revising',
+    ];
+
+    const extractSnippets = (text, keywords, maxSnippets=4) => {
+      if (!text) return [];
+      const sentences = text.replace(/([.!?])\s+/g,'$1\n').split('\n').filter(s=>s.trim().length>20);
+      const found = [];
+      for (const s of sentences) {
+        if (found.length >= maxSnippets) break;
+        const lower = s.toLowerCase();
+        const kw = keywords.find(k=>lower.includes(k));
+        if (kw) found.push({ sentence: s.trim().slice(0,280), keyword: kw });
+      }
+      return found;
+    };
+
+    const traceAgents = Object.keys(AGENT_WAVE).filter(id => allDataBlocks[id] || allThinking[id]);
+    const totalPages = 1 + traceAgents.length;
+
+    // ── KPI counts ──
+    let hmCount = 0, totalKpis = 0;
+    Object.values(allDataBlocks).forEach(db => {
+      if (!db || !Array.isArray(db.kpis)) return;
+      db.kpis.forEach(k => { totalKpis++; if (k.confidence==='H'||k.confidence==='M') hmCount++; });
+    });
+    const totalSearches = Object.values(allToolLogs).reduce((s,logs) => s+(logs||[]).length, 0);
+    const totalSources  = Object.values(allToolLogs).reduce((s,logs) => s+(logs||[]).reduce((n,l)=>n+(l.results||[]).length,0), 0);
+    const searchCountFinal = totalSearches > 0 ? totalSearches : (() => {
+      const all = Object.values(allThinking).join(' ');
+      return (all.match(/(?:let me search|now i.m (?:running )?search|i.ll search|searching for|web search)/gi)||[]).length;
+    })();
+    const thinkingTotal = Object.values(allThinking).reduce((s,t) => s+(t||'').length, 0);
+    const elapsedStr = elapsed > 0 ? `${Math.floor(elapsed/60)}m ${elapsed%60}s` : '—';
+    const agentsDone = traceAgents.length;
+
+    // ── CSS ──
+    const css = `
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Helvetica Neue',Arial,sans-serif;background:#fff;color:#1a1a1a;font-size:8px;}
+      .page{width:794px;padding:28px 36px 36px;background:#fff;page-break-after:always;}
+      .page:last-child{page-break-after:auto;}
+      .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid ${navy};}
+      .eyebrow{font-size:6.5px;font-weight:700;letter-spacing:.14em;color:#b85c38;text-transform:uppercase;margin-bottom:3px;}
+      h1{font-size:22px;font-weight:900;color:${navy};line-height:1.1;}
+      .sub{font-size:8px;color:#666;margin-top:3px;}
+      .kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:18px;}
+      .kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:8px 10px;text-align:center;}
+      .kpi.dark{background:${navy};border-color:${navy};}
+      .kpi-lbl{font-size:6px;font-weight:600;letter-spacing:.06em;color:#64748b;text-transform:uppercase;margin-bottom:3px;}
+      .kpi.dark .kpi-lbl{color:#94a3b8;}
+      .kpi-val{font-size:16px;font-weight:900;color:${navy};line-height:1;}
+      .kpi.dark .kpi-val{color:#86efac;}
+      .kpi-sub{font-size:5.5px;color:#64748b;margin-top:2px;}
+      .kpi.dark .kpi-sub{color:#4ade80;font-weight:700;}
+      .sec{font-size:6.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:${navy};margin-bottom:8px;padding-bottom:4px;border-bottom:1.5px solid ${navy};}
+      .sec.purple{color:${purple};border-color:${purple};}
+      .agent-page-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid ${navy};}
+      table{width:100%;border-collapse:collapse;font-size:6.5px;margin-bottom:12px;}
+      thead tr{background:${navy};color:#fff;}
+      thead th{padding:4px 7px;font-size:6px;text-align:left;font-weight:600;}
+      tbody tr{border-bottom:1px solid #e5e7eb;}
+      tbody td{padding:4px 7px;vertical-align:top;line-height:1.5;}
+      .badge{display:inline-block;font-size:5.5px;font-weight:800;font-family:monospace;padding:1px 4px;border-radius:2px;}
+      .thinking-box{background:#faf5ff;border:1px solid #e9d5ff;border-left:3px solid ${purple};border-radius:2px;padding:8px 12px;margin-bottom:10px;font-size:6.5px;line-height:1.7;color:#4c1d95;font-family:monospace;white-space:pre-wrap;max-height:360px;overflow:hidden;}
+      .snippet-box{background:#fffbeb;border:1px solid #fde68a;border-left:3px solid ${amber};border-radius:2px;padding:6px 10px;margin-bottom:5px;font-size:6.5px;line-height:1.6;color:#78350f;}
+      .search-row{padding:4px 7px;border-bottom:1px solid #f1f5f9;font-size:6px;}
+      .footer{display:flex;justify-content:space-between;margin-top:20px;padding-top:6px;border-top:1px solid #e0d8cc;}
+      .footer span{font-size:6px;color:#999;font-family:monospace;}
+      /* Agent interaction map */
+      .wave-grid{display:flex;gap:0;align-items:flex-start;margin-bottom:14px;}
+      .wave-col{display:flex;flex-direction:column;gap:4px;min-width:90px;}
+      .wave-lbl{font-size:5.5px;font-weight:700;letter-spacing:.1em;color:#94a3b8;text-transform:uppercase;margin-bottom:2px;text-align:center;}
+      .agent-box{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:3px;padding:4px 6px;text-align:center;font-size:6px;font-weight:700;color:${navy};position:relative;}
+      .agent-box.synopsis{background:#ede9fe;border-color:#8b5cf6;color:#4c1d95;}
+      .agent-box.brief{background:#fef3c7;border-color:${amber};color:#78350f;}
+      /* Heatmap */
+      .heat-table{width:100%;border-collapse:collapse;font-size:6px;margin-bottom:12px;}
+      .heat-table th{background:${navy};color:#fff;padding:3px 6px;text-align:left;font-size:5.5px;}
+      .heat-table td{padding:3px 6px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+    `;
+
+    // ── AGENT INTERACTION MAP SVG ──────────────────────────────────────────────
+    const waves = {1:['market','product','gtm','revenue','customer','competitive'],2:['funding','pricing','intl'],3:['synopsis'],4:['brief']};
+    const waveLabels = {1:'Wave 1 · 6 agents',2:'Wave 2 · 3 agents',3:'Synopsis',4:'Brief'};
+    const agentMapHtml = `
+      <div class="wave-grid">
+        ${Object.entries(waves).map(([w,agents])=>`
+          <div class="wave-col">
+            <div class="wave-lbl">${waveLabels[w]||'W'+w}</div>
+            ${agents.map(id=>`<div class="agent-box ${id==='synopsis'?'synopsis':id==='brief'?'brief':''}">${AGENT_SHORT[id]||id}</div>`).join('')}
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    // ── CONFIDENCE HEATMAP ─────────────────────────────────────────────────────
+    const heatRows = Object.keys(AGENT_WAVE).filter(id=>allDataBlocks[id]).map(id=>{
+      const db = allDataBlocks[id]||{};
+      const kpis = Array.isArray(db.kpis)?db.kpis:[];
+      const overall = db.verdictRow?.confidence||'—';
+      return `<tr>
+        <td style="font-weight:700;color:${navy};">${AGENT_SHORT[id]||id}</td>
+        <td><span class="badge" style="background:${confBg(overall)};color:${confColor(overall)};">${overall}</span></td>
+        ${kpis.slice(0,4).map(k=>`<td><span class="badge" style="background:${confBg(k.confidence)};color:${confColor(k.confidence)};">${k.confidence||'—'}</span><br/><span style="font-size:5.5px;color:#666;">${(k.label||'').slice(0,14)}</span></td>`).join('')}
+        ${kpis.length<4?'<td></td>'.repeat(4-kpis.length):''}
+        <td style="color:#64748b;">${db.verdictRow?.verdict||'—'}</td>
+      </tr>`;
+    }).join('');
+
+    // ── PAGE 1 ─────────────────────────────────────────────────────────────────
+    const page1 = `<div class="page">
+      <div class="hdr">
+        <div>
+          <div class="eyebrow">Research Trace · Sprint Intelligence Report · SaaS Tool</div>
+          <h1>${co}${sector?' — '+sector:''}</h1>
+          <div class="sub">${date} · Sprint duration: ${elapsedStr} · ${agentsDone}/11 agents completed${stage?' · '+stage:''}</div>
+        </div>
+        <div style="font-size:7px;color:#999;text-align:right;line-height:1.6;">AdvisorSprint<br/>SaaS Intelligence</div>
+      </div>
+
+      <div class="kpi-strip">
+        <div class="kpi dark">
+          <div class="kpi-lbl">Quality Score</div>
+          <div class="kpi-val">${hmCount>0?Math.round((hmCount/Math.max(totalKpis,1))*100):'—'}<span style="font-size:11px;">%</span></div>
+          <div class="kpi-sub">${hmCount>0?(Math.round((hmCount/Math.max(totalKpis,1))*100)>=75?'STRONG':'BUILDING'):'IN PROGRESS'}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Agents Done</div>
+          <div class="kpi-val">${agentsDone}<span style="font-size:10px;color:#94a3b8;">/11</span></div>
+          <div class="kpi-sub">of 11 ran successfully</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Web Searches</div>
+          <div class="kpi-val">${searchCountFinal}${totalSearches===0&&searchCountFinal>0?'<span style="font-size:8px;color:#94a3b8;">~</span>':''}</div>
+          <div class="kpi-sub">${totalSources>0?totalSources+' sources retrieved':searchCountFinal>0?'from thinking stream':'0 sources retrieved'}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">H/M Confidence</div>
+          <div class="kpi-val">${hmCount}<span style="font-size:10px;color:#94a3b8;">/${totalKpis}</span></div>
+          <div class="kpi-sub">KPIs reliably sourced</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Opus Thinking</div>
+          <div class="kpi-val">${thinkingTotal>0?Math.round(thinkingTotal/1000)+'<span style="font-size:10px;">k</span>':'—'}</div>
+          <div class="kpi-sub">chars of reasoning</div>
+        </div>
+      </div>
+
+      <div class="sec">Agent Interaction Map — How Outputs Flowed Through the Sprint</div>
+      ${agentMapHtml}
+
+      <div class="sec">Confidence Heatmap · All Agents</div>
+      <table class="heat-table">
+        <thead><tr><th>Agent</th><th>Overall</th><th>KPI 1</th><th>KPI 2</th><th>KPI 3</th><th>KPI 4</th><th>Verdict</th></tr></thead>
+        <tbody>${heatRows}</tbody>
+      </table>
+
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-left:3px solid ${purple};border-radius:2px;padding:6px 10px;font-size:6px;color:#4c1d95;line-height:1.5;margin-top:8px;">
+        H — sourced from a named publication, filing, or verified data. Safe to use with investor.&nbsp;&nbsp;
+        M — triangulated from 2+ indirect signals. Check reasoning trace.&nbsp;&nbsp;
+        L — estimated from weak signals. Verify before using.
+      </div>
+
+      <div class="footer">
+        <span>AdvisorSprint Intelligence · SaaS Tool · Confidential</span>
+        <span>Page 1 of ${totalPages}</span>
+      </div>
+    </div>`;
+
+    // ── AGENT PAGES ────────────────────────────────────────────────────────────
+    const agentPages = traceAgents.map((id, pageIdx) => {
+      const db = allDataBlocks[id]||{};
+      const thinking = allThinking[id]||'';
+      const toolLog = allToolLogs[id]||[];
+      const wave = AGENT_WAVE[id];
+      const inputIds = AGENT_INPUTS[id]||[];
+      const pageNum = pageIdx + 2;
+
+      // Inputs panel (W2, Synopsis, Brief)
+      const showInputs = wave >= 2 && inputIds.length > 0;
+      const inputsHtml = showInputs ? `
+        <div class="sec">Agent Inputs Received — What This Agent Was Given</div>
+        <table>
+          <thead><tr><th>Source Agent</th><th>Conf</th><th>Key Finding Passed In</th></tr></thead>
+          <tbody>
+            ${inputIds.map(fid=>{
+              const fdb = allDataBlocks[fid]||{};
+              const fkpis = Array.isArray(fdb.kpis)?fdb.kpis:[];
+              const conf = fdb.verdictRow?.confidence||'—';
+              const finding = fdb.verdictRow?.finding||fkpis[0]?.label||'—';
+              return `<tr>
+                <td style="font-weight:700;color:${navy};">${AGENT_SHORT[fid]||fid}</td>
+                <td><span class="badge" style="background:${confBg(conf)};color:${confColor(conf)};">${conf}</span></td>
+                <td style="color:#374151;">${finding.slice(0,120)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      ` : '';
+
+      // Contradiction snippets from thinking
+      const contradictions = extractSnippets(thinking, CONTRADICTION_KW, 4);
+      const contradictHtml = contradictions.length > 0 ? `
+        <div class="sec">Cross-Agent Reasoning — Where Opus Reconciled Conflicting Signals</div>
+        <div style="margin-bottom:10px;font-size:6.5px;color:#64748b;">Passages from extended thinking where Opus detected tension or disagreement between prior agent outputs.</div>
+        ${contradictions.map((s,i)=>`
+          <div class="snippet-box">
+            <div style="font-size:5.5px;font-weight:700;color:#92400e;margin-bottom:3px;">Signal ${i+1} — keyword: "${s.keyword}"</div>
+            ${s.sentence}
+          </div>
+        `).join('')}
+      ` : '';
+
+      // Thinking stream
+      const thinkingHtml = thinking ? `
+        <div class="sec purple">Extended Thinking — Full Reasoning Stream</div>
+        <div style="font-size:6.5px;color:#64748b;margin-bottom:6px;">${thinking.length.toLocaleString()} chars · ${Math.round(thinking.length/6.5)} words · full trace shown</div>
+        <div class="thinking-box">${thinking.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0, 8000)}${thinking.length>8000?'\n\n[... '+Math.round((thinking.length-8000)/6.5)+' more words — truncated for PDF size ...]':''}</div>
+      ` : '';
+
+      // Search log
+      const agentSearchMentions = !toolLog.length && thinking ?
+        (thinking.match(/(?:let me search|now i.m (?:running )?search|i.ll search|searching for|web search|search results)/gi)||[]).length : 0;
+      const searchHtml = toolLog.length ? `
+        <div class="sec">Research Sequence — Web Searches Performed</div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:2px;overflow:hidden;margin-bottom:10px;">
+          ${toolLog.map((t,i)=>`
+            <div class="search-row" style="background:${i%2===0?'#fff':'#f8fafc'}">
+              <span style="font-weight:700;color:${blue};">${i+1}.</span>
+              <span style="font-weight:600;color:${navy};margin-left:4px;">${(t.query||'').slice(0,80)}</span>
+              ${t.results&&t.results.length?`<span style="color:#64748b;margin-left:6px;">(${t.results.length} result${t.results.length>1?'s':''})</span>`:''}
+            </div>
+          `).join('')}
+        </div>
+      ` : agentSearchMentions > 0 ? `
+        <div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-left:3px solid ${navy};border-radius:2px;margin-bottom:10px;">
+          <div style="font-size:6.5px;color:#0369a1;line-height:1.6;">~${agentSearchMentions} web search reference(s) detected in thinking stream. Detailed log was not captured — the thinking stream above shows what was searched and found.</div>
+        </div>
+      ` : '';
+
+      // KPI provenance
+      const kpis = Array.isArray(db.kpis)?db.kpis:[];
+      const hasProvenance = id==='brief' && kpis.length>0 &&
+        kpis[0]?.label!=='Analysis Complete' &&
+        (Array.isArray(db.revenueGaps)||Array.isArray(db.moves)||db.strategicTension);
+      const provenanceHtml = hasProvenance ? `
+        <div class="sec purple">Calculation Provenance — How Key Metrics Were Derived</div>
+        <table>
+          <thead><tr><th>Metric / KPI</th><th>Value</th><th>Arithmetic Shown</th><th>Conf</th></tr></thead>
+          <tbody>
+            ${kpis.map(k=>`<tr>
+              <td style="font-weight:700;color:${navy};">${k.label||'—'}</td>
+              <td style="font-weight:900;font-size:7.5px;">${k.value||'—'}</td>
+              <td style="color:#374151;font-size:6px;font-style:italic;">${k.sub||'—'}</td>
+              <td><span class="badge" style="background:${confBg(k.confidence)};color:${confColor(k.confidence)};">${k.confidence||'—'}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      ` : '';
+
+      return `<div class="page">
+        <div class="agent-page-hdr">
+          <div>
+            <div class="eyebrow">Agent ${pageIdx+1} · Wave ${wave} · Reasoning Trace</div>
+            <div style="font-size:13px;font-weight:900;color:${navy};">${(db.verdictRow?.dimension||AGENT_SHORT[id]||id).toUpperCase()}</div>
+            <div style="font-size:7px;color:#666;margin-top:2px;">Received input from: ${inputIds.length>0?inputIds.map(i=>AGENT_SHORT[i]||i).join(' → '):'No prior agents — first wave'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:7px;color:#666;font-family:monospace;">PAGE ${pageNum} OF ${totalPages}</div>
+            ${db.verdictRow?.verdict?`<div style="margin-top:4px;"><span class="badge" style="background:${
+              db.verdictRow.verdict==='STRONG'?'#dcfce7':db.verdictRow.verdict==='RISK'?'#fee2e2':'#fef3c7'
+            };color:${
+              db.verdictRow.verdict==='STRONG'?'#15803d':db.verdictRow.verdict==='RISK'?'#dc2626':amber
+            };font-size:7px;padding:2px 8px;">${db.verdictRow.verdict}</span></div>`:''}
+          </div>
+        </div>
+
+        ${inputsHtml}
+        ${provenanceHtml}
+        ${thinkingHtml}
+        ${searchHtml}
+        ${contradictHtml}
+
+        <div class="footer">
+          <span>AdvisorSprint Intelligence · SaaS Tool · Confidential</span>
+          <span>Page ${pageNum} of ${totalPages}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><style>${css}</style></head><body>${page1}${agentPages}</body></html>`;
+  };
+
+  // ── GENERATE SAAS TRACE PDF ────────────────────────────────────────────────
+  const [tracePdfGenerating, setTracePdfGenerating] = useState(false);
+
+  const generateTracePDF = async () => {
+    if (tracePdfGenerating) return;
+    setTracePdfGenerating(true);
+    try {
+      // Resolve dataBlocks from sessionStorage — not stale React state
+      let resolvedDataBlocks = { ...dataBlocks };
+      try {
+        const saved = sessionStorage.getItem(`sprint_${company.trim()}`);
+        if (saved) {
+          const w1 = JSON.parse(saved);
+          Object.entries(w1).forEach(([id, raw]) => {
+            if (typeof raw !== 'string') return;
+            const m = raw.match(/<<<DATA_BLOCK>>>\s*\`\`\`json([\s\S]*?)\`\`\`\s*<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>|<<<DATA_BLOCK>>>\s*(\{[\s\S]*\})/);
+            if (m) {
+              try {
+                const parsed = JSON.parse(repairJson((m[1]||m[2]||m[3]||'').trim().replace(/^\`\`\`[a-z]*\n?/,'').replace(/\n?\`\`\`$/,'').trim()));
+                resolvedDataBlocks[id] = parsed;
+              } catch(e) {}
+            }
+          });
+        }
+      } catch(e) { console.warn('[TracePDF] sessionStorage read:', e.message); }
+
+      // Restore toolLogs from sessionStorage
+      let resolvedToolLogs = toolLogs;
+      try {
+        const stored = sessionStorage.getItem(`toolLogs_${company.trim()}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const stateCount = Object.values(toolLogs).reduce((s,l)=>s+(l||[]).length,0);
+          const storedCount = Object.values(parsed).reduce((s,l)=>s+(l||[]).length,0);
+          if (storedCount > stateCount) resolvedToolLogs = parsed;
+        }
+      } catch(e) {}
+
+      const html = buildSaaSTracePdfHtml(
+        company.trim(), acquisitionMode ? acquirer.trim() : '',
+        sector, stage, context.trim(),
+        resolvedDataBlocks, thinkingBlocks, resolvedToolLogs, elapsed
+      );
+
+      const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html, company: company.trim() }),
+        signal: AbortSignal.timeout(120000),
+      });
+      if (!pdfRes.ok) {
+        const errBody = await pdfRes.json().catch(() => ({ error: `Server error ${pdfRes.status}` }));
+        throw new Error(errBody.error || `Trace PDF failed — server ${pdfRes.status}`);
+      }
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${company.trim().replace(/\s+/g,'-')}_ResearchTrace_${new Date().toISOString().slice(0,10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      alert(`Trace PDF failed: ${e.message}`);
+    } finally {
+      setTracePdfGenerating(false);
     }
   };
 
@@ -2418,6 +2856,11 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
                 {briefGenerating ? 'Generating…' : '⬇ Opportunity Brief'}
               </button>
             )}
+            {Object.keys(results).length >= 3 && (
+              <button onClick={generateTracePDF} disabled={tracePdfGenerating} style={{ padding: '6px 16px', background: tracePdfGenerating ? '#ffffff20' : '#4c1d95', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: tracePdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
+                {tracePdfGenerating ? '⟳ Building Trace…' : '⬇ Research Trace'}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -2481,6 +2924,40 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
               placeholder="Paste context brief, specific questions, or known data points here..."
               rows={8}
               style={{ width: '100%', padding: '9px 12px', border: `1px solid #ffffff20`, borderRadius: 4, fontFamily: "'Instrument Sans'", fontSize: 12, background: '#ffffff0d', color: '#fff', resize: 'vertical', lineHeight: 1.6 }} />
+          </div>
+
+          {/* Reference Document upload — UI only, coming soon */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontFamily: 'monospace', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: N.blueMid, marginBottom: 6 }}>
+              Reference Document
+              <span style={{ marginLeft: 8, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#ffffff30', fontSize: 10 }}>Optional · 1 PDF · Max 500 KB</span>
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <label
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  padding: '8px 14px',
+                  background: '#ffffff08',
+                  border: '1.5px dashed #ffffff20',
+                  borderRadius: 4,
+                  fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
+                  color: '#ffffff40',
+                  cursor: 'not-allowed',
+                  userSelect: 'none',
+                  opacity: 0.7,
+                }}
+
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 13h10M7 1v8M4 6l3 3 3-3" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Attach PDF
+                <input type="file" accept=".pdf" disabled style={{ display: 'none' }} />
+              </label>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#ffffff25', fontStyle: 'italic' }}>
+                No file attached
+              </span>
+            </div>
           </div>
 
           {/* Test mode + Run */}
