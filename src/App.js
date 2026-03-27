@@ -2691,16 +2691,14 @@ ${JSON.stringify(db, null, 2)}`
       ? `
 
 YOUR REASONING TRACE (extended thinking — shows how you arrived at conclusions):
-${thinking.slice(0, 4000)}${thinking.length > 4000 ? '
-[...truncated for context length...]' : ''}`
+${thinking.slice(0, 4000)}${thinking.length > 4000 ? '\\n[...truncated for context length...]' : ''}`
       : '';
 
     const searchStr = toolLog.length > 0
       ? `
 
 WEB SEARCHES YOU PERFORMED:
-${toolLog.map((t,i) => `${i+1}. Query: "${t.query}" — ${t.results?.length || 0} results`).join('
-')}`
+${toolLog.map((t,i) => `${i+1}. Query: "${t.query}" — ${t.results?.length || 0} results`).join('\\n')}`
       : '';
 
     return `You are the ${agentMeta.label || agentId} agent from an AdvisorSprint analysis of ${company}${sector ? ` (${sector})` : ''}.
@@ -2715,8 +2713,7 @@ CRITICAL RULES — follow these exactly:
 7. If the user asks about something not visible in your output above, acknowledge the analysis may be truncated and direct them to the full report.
 
 YOUR FULL ANALYSIS OUTPUT:
-${prose.slice(0, PROSE_CAP)}${prose.length > PROSE_CAP ? '
-[...truncated — full analysis in report...]' : ''}${dataBlockStr}${thinkingStr}${searchStr}`;
+${prose.slice(0, PROSE_CAP)}${prose.length > PROSE_CAP ? '\\n[...truncated - full analysis in report...]' : ''}${dataBlockStr}${thinkingStr}${searchStr}`;
   };
 
   // Send a message to the agent — streaming SSE, full conversation history (Option A)
