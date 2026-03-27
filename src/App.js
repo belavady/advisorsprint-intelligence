@@ -1804,6 +1804,13 @@ const gaEvent = (name, params={}) => {
 
 // ── MAIN APP COMPONENT ──────────────────────────────────────────────────────
 export default function AdvisorSprintIntelligence() {
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  const [sessionToken, setSessionToken] = useState(() => sessionStorage.getItem('sprint_token') || null);
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [sprintCreditUsed, setSprintCreditUsed] = useState(() => sessionStorage.getItem('sprint_credit_used') === '1');
+
   const [company, setCompany] = useState("Clay");
   const [acquirer, setAcquirer] = useState("");
   const [sector, setSector] = useState("SaaS");
@@ -1822,6 +1829,11 @@ export default function AdvisorSprintIntelligence() {
   const toolLogsRef = useRef({});  // synchronous mirror of toolLogs — avoids stale closure in sessionStorage writes
   const [toolLogs, setToolLogs] = useState({});         // per-agent search logs for trace PDF
   const [thinkingBlocks, setThinkingBlocks] = useState({}); // synopsis + brief thinking traces
+  // ── Conversational agent drawer ──────────────────────────────────────────
+  const [drawerAgent, setDrawerAgent] = useState(null);       // agent id currently open, null = closed
+  const [drawerMessages, setDrawerMessages] = useState([]);   // full conversation history [{role,content}]
+  const [drawerInput, setDrawerInput] = useState('');         // current user input
+  const [drawerLoading, setDrawerLoading] = useState(false);  // API call in flight
   const [sources, setSources] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [elapsed, setElapsed] = useState(0);
@@ -1857,7 +1869,7 @@ export default function AdvisorSprintIntelligence() {
       try {
         res = await fetch(API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-tool-name': 'advisor-intelligence', 'Cache-Control': 'no-store' },
+          headers: authHeaders({ 'x-tool-name': 'advisor-intelligence', 'Cache-Control': 'no-store' }),
           cache: 'no-store',
           signal,
           body: JSON.stringify({ prompt, agentId, market: 'US', mode: 'saas' }),
@@ -2058,6 +2070,10 @@ export default function AdvisorSprintIntelligence() {
       sessionStorage.removeItem('briefDataBlock');
     } catch(e) {}
     setElapsed(0);
+    let wakeLock = null;
+    try {
+      if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+    } catch(wlErr) { console.warn('[WakeLock]', wlErr.message); }
 
     try {
       await Promise.race([
@@ -2136,6 +2152,8 @@ export default function AdvisorSprintIntelligence() {
       }
       if (!signal.aborted) {
         setAppState("done");
+        if (wakeLock) { try { await wakeLock.release(); } catch(e) {} wakeLock = null; }
+        markSprintComplete();
         // NOTE: sessionStorage cleared AFTER brief/gap triggers use it
 
         // Auto-generate the opportunity brief PDF using w1texts directly
@@ -2178,6 +2196,7 @@ export default function AdvisorSprintIntelligence() {
       }
     } catch(e) {
       console.error("Sprint error:", e);
+      if (wakeLock) { try { await wakeLock.release(); } catch(wlErr) {} }
       setAppState("error");
     } finally {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -2516,6 +2535,9 @@ export default function AdvisorSprintIntelligence() {
 
   // ── GENERATE SAAS TRACE PDF ────────────────────────────────────────────────
   const [tracePdfGenerating, setTracePdfGenerating] = useState(false);
+  const [shareUrl, setShareUrl] = useState(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const generateTracePDF = async () => {
     if (tracePdfGenerating) return;
@@ -2560,7 +2582,7 @@ export default function AdvisorSprintIntelligence() {
 
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ html, company: company.trim() }),
         signal: AbortSignal.timeout(120000),
       });
@@ -2579,6 +2601,303 @@ export default function AdvisorSprintIntelligence() {
       alert(`Trace PDF failed: ${e.message}`);
     } finally {
       setTracePdfGenerating(false);
+    }
+  };
+
+
+  // ── AGENT DRAWER HELPERS ──────────────────────────────────────────────────
+
+  // Extract a clean 2-sentence summary from agent prose (auto-extract, no extra API call)
+  const getAgentSummary = (agentId) => {
+    const raw = results[agentId] || '';
+    if (!raw) return '';
+    // Strip any residual DATA_BLOCK markers
+    const clean = raw
+      .replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '')
+      .replace(/◉◉ VERDICT_STAMP[\s\S]*?◉◉ END_STAMP/g, '')
+      .trim();
+    // Take first 280 chars, cut at sentence boundary
+    const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
+    const summary = sentences.slice(0, 2).join(' ').trim();
+    return summary.slice(0, 320) || clean.slice(0, 280);
+  };
+
+  // Generate 3 suggested questions from the agent's DATA_BLOCK
+  // These are grounded in what the agent actually found — prevents hallucination bait
+  const getSuggestedQuestions = (agentId) => {
+    const db = dataBlocks[agentId] || {};
+    const kpis = Array.isArray(db.kpis) ? db.kpis : [];
+    const verdict = db.verdictRow || {};
+    const questions = [];
+
+    // Q1: Ask about the top KPI calculation — most useful question
+    if (kpis[0]?.label && kpis[0]?.value) {
+      questions.push(`How did you calculate ${kpis[0].label} of ${kpis[0].value}?`);
+    } else {
+      questions.push(`What is your single most important finding for ${company}?`);
+    }
+
+    // Q2: Ask about confidence on a medium/low KPI if present, else the verdict
+    const lowConf = kpis.find(k => k.confidence === 'L' || k.confidence === 'M');
+    if (lowConf?.label) {
+      questions.push(`Your confidence on ${lowConf.label} was ${lowConf.confidence} — what would make it H?`);
+    } else if (verdict.finding) {
+      questions.push(`What's the evidence behind: "${verdict.finding.slice(0, 60)}${verdict.finding.length > 60 ? '...' : ''}"?`);
+    } else {
+      questions.push('What data were you unable to verify through web search?');
+    }
+
+    // Q3: Implication question — always useful regardless of data quality
+    const agentImplications = {
+      market:      `What does the category trajectory mean for ${company}'s next 18 months?`,
+      product:     `How long before a competitor can replicate ${company}'s core moat?`,
+      gtm:         `What is the single highest-impact GTM change ${company} could make?`,
+      revenue:     `What would it take for ${company} to improve its Rule of 40 score?`,
+      customer:    `Which customer segment is most at risk of churning and why?`,
+      competitive: `What is the most plausible way a competitor breaks ${company}'s moat?`,
+      funding:     `What acquirer would pay the most for ${company} and what would they pay for?`,
+      pricing:     `Where is ${company} leaving ARR on the table through its pricing model?`,
+      intl:        `Should ${company} expand internationally now or defend its home market first?`,
+      synopsis:    `Where did agents disagree most and how did you resolve the tension?`,
+      brief:       `What is the single move ${company} must make in the next 18 months?`,
+    };
+    questions.push(agentImplications[agentId] || `What is the most important implication of your analysis for ${company}?`);
+
+    return questions;
+  };
+
+  // Build the system prompt for the agent chat — grounded in actual output only
+  // This is the anti-hallucination anchor: the model can ONLY answer from what it produced
+  const buildAgentSystemPrompt = (agentId) => {
+    const agentMeta = SAAS_AGENTS.find(a => a.id === agentId) || {};
+    const PROSE_CAP = agentId === 'synopsis' ? 4000 : agentId === 'brief' ? 3000 : 6000;
+    const prose = (results[agentId] || '')
+      .replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '')
+      .replace(/◉◉ VERDICT_STAMP[\s\S]*?◉◉ END_STAMP/g, '')
+      .trim();
+    const db = dataBlocks[agentId] || {};
+    const thinking = thinkingBlocks[agentId] || '';
+    const toolLog = toolLogs[agentId] || [];
+
+    // Build a structured context block the model can reference
+    const dataBlockStr = Object.keys(db).length > 0
+      ? `
+
+STRUCTURED DATA (your DATA_BLOCK output):
+${JSON.stringify(db, null, 2)}`
+      : '';
+
+    const thinkingStr = thinking
+      ? `
+
+YOUR REASONING TRACE (extended thinking — shows how you arrived at conclusions):
+${thinking.slice(0, 4000)}${thinking.length > 4000 ? '
+[...truncated for context length...]' : ''}`
+      : '';
+
+    const searchStr = toolLog.length > 0
+      ? `
+
+WEB SEARCHES YOU PERFORMED:
+${toolLog.map((t,i) => `${i+1}. Query: "${t.query}" — ${t.results?.length || 0} results`).join('
+')}`
+      : '';
+
+    return `You are the ${agentMeta.label || agentId} agent from an AdvisorSprint analysis of ${company}${sector ? ` (${sector})` : ''}.
+
+CRITICAL RULES — follow these exactly:
+1. You can ONLY answer based on what you actually found and wrote in this sprint. Do not invent new data, statistics, or findings.
+2. If asked about something not in your output, say clearly: "I did not analyse that in this sprint — my scope was [your scope]."
+3. If a number came from a web search result, say so. If it was estimated or derived, say so and show the arithmetic.
+4. If your confidence was L or M on something, explain why and what would change it to H.
+5. Keep answers concise — 3-5 sentences unless the user asks for detail.
+6. Never speculate beyond what your output supports. Qualify everything uncertain with "estimated", "derived", or "not confirmed".
+7. If the user asks about something not visible in your output above, acknowledge the analysis may be truncated and direct them to the full report.
+
+YOUR FULL ANALYSIS OUTPUT:
+${prose.slice(0, PROSE_CAP)}${prose.length > PROSE_CAP ? '
+[...truncated — full analysis in report...]' : ''}${dataBlockStr}${thinkingStr}${searchStr}`;
+  };
+
+  // Send a message to the agent — streaming SSE, full conversation history (Option A)
+  const sendDrawerMessage = async () => {
+    if (!drawerInput.trim() || drawerLoading || !drawerAgent) return;
+    const userMessage = drawerInput.trim();
+    setDrawerInput('');
+
+    // Append user message + empty assistant placeholder immediately (optimistic UI)
+    const newMessages = [...drawerMessages, { role: 'user', content: userMessage }];
+    setDrawerMessages([...newMessages, { role: 'assistant', content: '', isStreaming: true }]);
+    setDrawerLoading(true);
+
+    try {
+      const systemPrompt = buildAgentSystemPrompt(drawerAgent);
+      // Option A: full history every time — model maintains conversation context
+      const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
+
+      const response = await fetch(API_URL.replace('/api/claude', '/api/chat'), {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          system: systemPrompt,
+          messages: apiMessages,
+          model: 'claude-sonnet-4-6',
+          max_tokens: 600,
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        const err = await response.text().catch(() => '');
+        throw new Error(err || `Server error ${response.status}`);
+      }
+
+      // Read SSE stream — tokens arrive as they are generated
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullReply = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('
+');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === 'chunk') {
+              fullReply += event.text;
+              // Update the streaming placeholder in real time
+              setDrawerMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'assistant', content: fullReply, isStreaming: true };
+                return updated;
+              });
+            }
+            if (event.type === 'done') {
+              fullReply = event.text || fullReply;
+            }
+            if (event.type === 'error') {
+              throw new Error(event.message || 'Stream error');
+            }
+          } catch(parseErr) {
+            if (parseErr.message !== 'Stream error' && !parseErr.message.startsWith('JSON')) continue;
+            throw parseErr;
+          }
+        }
+      }
+
+      // Finalise — remove streaming flag
+      setDrawerMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: 'assistant', content: fullReply, isStreaming: false };
+        return updated;
+      });
+
+    } catch(e) {
+      // Replace streaming placeholder with error message
+      setDrawerMessages(prev => {
+        const updated = [...prev.filter(m => !m.isStreaming)];
+        return [...updated, {
+          role: 'assistant',
+          content: `Unable to get a response: ${e.message}. Please try again.`,
+          isError: true,
+        }];
+      });
+    } finally {
+      setDrawerLoading(false);
+    }
+  };
+
+  // Open drawer for a specific agent — reset conversation
+  const openDrawer = (agentId) => {
+    setDrawerAgent(agentId);
+    setDrawerMessages([]);
+    setDrawerInput('');
+    setDrawerLoading(false);
+  };
+
+  // Close drawer
+  const closeDrawer = () => {
+    setDrawerAgent(null);
+    setDrawerMessages([]);
+    setDrawerInput('');
+  };
+
+
+  const authHeaders = (extra = {}) => ({
+    'Content-Type': 'application/json',
+    'x-session-token': sessionToken || '',
+    ...extra,
+  });
+
+  const handleAuth = async () => {
+    if (!authPassword.trim()) return;
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      const res = await fetch(API_URL.replace('/api/claude', '/api/auth'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: authPassword.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Authentication failed');
+      sessionStorage.setItem('sprint_token', data.token);
+      setSessionToken(data.token);
+    } catch(e) {
+      setAuthError(e.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const markSprintComplete = async () => {
+    if (sprintCreditUsed) return;
+    try {
+      const res = await fetch(API_URL.replace('/api/claude', '/api/sprint-complete'), {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (res.status === 403 || res.ok) {
+        sessionStorage.setItem('sprint_credit_used', '1');
+        setSprintCreditUsed(true);
+      }
+    } catch(e) { console.warn('[SprintComplete]', e.message); }
+  };
+
+
+  const saveSprint = async () => {
+    if (shareLoading) return;
+    setShareLoading(true);
+    try {
+      const res = await fetch(API_URL.replace('/api/claude', '/api/save-sprint'), {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          company: company.trim(),
+          tool: 'saas',
+          sector,
+          results,
+          dataBlocks,
+          thinking: thinkingBlocks,
+          toolLogs,
+          sources,
+          elapsed,
+        }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      const data = await res.json();
+      setShareUrl(data.shareUrl);
+      setShowShareModal(true);
+    } catch(e) {
+      alert(`Save failed: ${e.message}`);
+    } finally {
+      setShareLoading(false);
     }
   };
 
@@ -2712,7 +3031,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
       });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ html, company: co, acquirer: acq }),
         signal: AbortSignal.timeout(120000),
       });
@@ -2754,7 +3073,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
       const html = buildSaaSBriefHtml({ company, acquirer, sector, stage, results, dataBlocks: resolvedDataBlocks, companyMode: acquisitionMode ? 'acquired' : 'standalone' });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ html, company, acquirer }),
         signal: AbortSignal.timeout(120000),
       });
@@ -2783,7 +3102,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
       const html = buildSaaSPDFHtml({ company, acquirer, sector, stage, results, dataBlocks, sources, elapsed });
       const pdfRes = await fetch(API_URL.replace('/api/claude', '/api/pdf'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ html, company, acquirer }),
         signal: AbortSignal.timeout(120000),
       });
@@ -2826,6 +3145,44 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
 
   return (
     <div style={{ minHeight: '100vh', background: N.navy, fontFamily: "'Instrument Sans', sans-serif" }}>
+
+      {/* ── Password gate — shown until authenticated ── */}
+      {!sessionToken && (
+        <div style={{ position: 'fixed', inset: 0, background: N.navy, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 340, padding: '40px 36px', background: N.navyMid, border: '1px solid #ffffff15', borderRadius: 8 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, letterSpacing: '.3em', textTransform: 'uppercase', color: N.blueMid, marginBottom: 8 }}>AdvisorSprint</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: '#ffffff30', marginBottom: 28 }}>Intelligence · SaaS Tool</div>
+            <label style={{ display: 'block', fontFamily: 'monospace', fontSize: 9, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: N.blueMid, marginBottom: 8 }}>Access Code</label>
+            <input
+              type="password"
+              value={authPassword}
+              onChange={e => setAuthPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !authLoading && handleAuth()}
+              placeholder="Enter access code…"
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', background: '#ffffff0d', border: '1px solid #ffffff20', borderRadius: 4, color: '#fff', fontFamily: 'monospace', fontSize: 14, marginBottom: 12, outline: 'none', boxSizing: 'border-box' }}
+            />
+            {authError && (
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: N.red, marginBottom: 10 }}>{authError}</div>
+            )}
+            <button
+              onClick={handleAuth}
+              disabled={authLoading || !authPassword.trim()}
+              style={{ width: '100%', padding: '11px', background: authLoading ? '#ffffff20' : N.blue, border: 'none', borderRadius: 4, color: '#fff', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', cursor: authLoading || !authPassword.trim() ? 'not-allowed' : 'pointer' }}
+            >
+              {authLoading ? 'Verifying…' : 'Enter Sprint'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sprint credit exhausted notice ── */}
+      {sessionToken && sprintCreditUsed && appState === 'idle' && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: N.navyMid, border: `1px solid ${N.amber}40`, borderRadius: 6, padding: '12px 18px', zIndex: 90, maxWidth: 320 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: N.amber, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 4 }}>Sprint credit used</div>
+          <div style={{ fontSize: 11, color: '#ffffff70', lineHeight: 1.5 }}>Your complimentary sprint has been used. Contact Harsha for additional access.</div>
+        </div>
+      )}
       {/* Top bar */}
       <div style={{ background: N.navyMid, borderBottom: `1px solid #ffffff15`, padding: '12px 32px', display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '.3em', textTransform: 'uppercase', color: N.blueMid }}>AdvisorSprint</div>
@@ -2859,6 +3216,11 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
             {Object.keys(results).length >= 3 && (
               <button onClick={generateTracePDF} disabled={tracePdfGenerating} style={{ padding: '6px 16px', background: tracePdfGenerating ? '#ffffff20' : '#4c1d95', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: tracePdfGenerating ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
                 {tracePdfGenerating ? '⟳ Building Trace…' : '⬇ Research Trace'}
+              </button>
+            )}
+            {appState === 'done' && (
+              <button onClick={saveSprint} disabled={shareLoading} style={{ padding: '6px 16px', background: shareLoading ? '#ffffff20' : '#059669', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: shareLoading ? 'not-allowed' : 'pointer', letterSpacing: '.05em' }}>
+                {shareLoading ? '⟳ Saving…' : shareUrl ? '✓ Saved' : '⤴ Save & Share'}
               </button>
             )}
           </div>
@@ -2970,8 +3332,10 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
           </div>
 
           {appState === 'idle' || appState === 'done' || appState === 'error' ? (
-            <button onClick={runSprint} style={{ width: '100%', padding: '12px', background: N.blue, color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '.08em', fontFamily: 'monospace' }}>
-              {testMode ? '▶ TEST RUN (Agent 1)' : '▶ RUN SPRINT'}
+            <button onClick={sprintCreditUsed ? undefined : runSprint}
+              disabled={sprintCreditUsed}
+              style={{ width: '100%', padding: '12px', background: sprintCreditUsed ? '#ffffff15' : N.blue, color: sprintCreditUsed ? '#ffffff40' : '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: sprintCreditUsed ? 'not-allowed' : 'pointer', letterSpacing: '.08em', fontFamily: 'monospace' }}>
+              {sprintCreditUsed ? 'Sprint Credit Used' : testMode ? '▶ TEST RUN (Agent 1)' : '▶ RUN SPRINT'}
             </button>
           ) : (
             <button onClick={cancel} style={{ width: '100%', padding: '12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '.08em', fontFamily: 'monospace' }}>
@@ -3010,9 +3374,28 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
                     <div style={{ fontSize: 9, color: N.blueMid, fontFamily: 'monospace' }}>🔍 {statuses[agent.id]}</div>
                   )}
                   {st === 'done' && results[agent.id] && (
-                    <div style={{ fontSize: 9, color: '#ffffff60', marginTop: 4, maxHeight: 40, overflow: 'hidden' }}>
-                      {results[agent.id].slice(0,120)}…
+                    <div style={{ fontSize: 9, color: '#ffffff60', marginTop: 4, maxHeight: 32, overflow: 'hidden' }}>
+                      {results[agent.id].replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g,'').trim().slice(0,110)}…
                     </div>
+                  )}
+                  {st === 'done' && results[agent.id] && agent.id !== 'brief' && (
+                    <button
+                      onClick={() => openDrawer(agent.id)}
+                      style={{
+                        marginTop: 8, padding: '4px 10px',
+                        background: 'transparent',
+                        border: `1px solid ${N.blue}60`,
+                        borderRadius: 4,
+                        color: N.blueMid,
+                        fontSize: 9, fontWeight: 700,
+                        fontFamily: 'monospace',
+                        letterSpacing: '.06em',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Ask Agent ↗
+                    </button>
                   )}
                 </div>
               );
@@ -3054,6 +3437,266 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
           )}
         </div>
       </div>
+
+      {/* ── Share Modal ── */}
+      {showShareModal && shareUrl && (
+        <>
+          <div onClick={() => setShowShareModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 420, background: N.navyMid, border: '1px solid #ffffff20', borderRadius: 10, padding: '28px 32px', zIndex: 70 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: N.green, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 6 }}>Sprint saved</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 16, lineHeight: 1.4 }}>Share this link with your recipient — they can ask questions of each agent directly.</div>
+            <div style={{ background: '#0b1829', border: '1px solid #ffffff15', borderRadius: 4, padding: '10px 12px', fontFamily: 'monospace', fontSize: 10, color: N.blueMid, wordBreak: 'break-all', marginBottom: 12 }}>
+              {shareUrl}
+            </div>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 12 }}>
+              <div style={{ flexShrink: 0 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 8, color: '#ffffff40', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Scan to open</div>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=88x88&data=${encodeURIComponent(shareUrl)}&color=2563eb&bgcolor=0b1829`}
+                  alt="QR code"
+                  width={88} height={88}
+                  style={{ borderRadius: 4, border: '1px solid #ffffff15', display: 'block' }}
+                />
+              </div>
+              <div style={{ flex: 1, fontSize: 10, color: '#ffffff50', lineHeight: 1.7, paddingTop: 20 }}>
+                Share this link or scan the QR code. Recipients can ask questions of each agent — they cannot run new sprints.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shareUrl);
+                  const btn = document.activeElement;
+                  if (btn) { const orig = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = orig; }, 2000); }
+                }}
+                style={{ flex: 1, padding: '9px', background: N.blue, border: 'none', borderRadius: 4, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'monospace', cursor: 'pointer' }}
+              >
+                Copy Link
+              </button>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{ padding: '9px 16px', background: 'transparent', border: '1px solid #ffffff20', borderRadius: 4, color: '#ffffff60', fontSize: 11, cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ marginTop: 10, fontSize: 9, color: '#ffffff30', fontFamily: 'monospace' }}>
+              Link expires in 30 days · Recipients can ask questions — they cannot run sprints
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Agent Conversation Drawer ── */}
+      {drawerAgent && (() => {
+        const agentMeta = SAAS_AGENTS.find(a => a.id === drawerAgent) || {};
+        const db = dataBlocks[drawerAgent] || {};
+        const verdict = db.verdictRow || {};
+        const kpis = Array.isArray(db.kpis) ? db.kpis : [];
+        const summary = getAgentSummary(drawerAgent);
+        const suggestedQs = getSuggestedQuestions(drawerAgent);
+        const verdictColor = { STRONG:'#059669', WATCH:'#d97706', RISK:'#dc2626', OPTIMISE:'#2563eb', UNDERDELIVERED:'#9333ea' }[verdict.verdict] || '#64748b';
+        const verdictBg   = { STRONG:'#dcfce7', WATCH:'#fef3c7', RISK:'#fee2e2', OPTIMISE:'#dbeafe', UNDERDELIVERED:'#ede9fe' }[verdict.verdict] || '#f1f5f9';
+
+        return (
+          <>
+            {/* Overlay — click to close */}
+            <div
+              onClick={closeDrawer}
+              style={{
+                position: 'fixed', inset: 0,
+                background: 'rgba(0,0,0,0.45)',
+                zIndex: 40,
+              }}
+            />
+
+            {/* Drawer panel */}
+            <div style={{
+              position: 'fixed',
+              top: 49, right: 0,
+              width: 420,
+              height: 'calc(100vh - 49px)',
+              background: N.navyMid,
+              borderLeft: `1px solid #ffffff15`,
+              zIndex: 50,
+              display: 'flex',
+              flexDirection: 'column',
+              overflowY: 'hidden',
+            }}>
+
+              {/* Drawer header */}
+              <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid #ffffff10', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 8, fontWeight: 700, color: N.blueMid, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 3 }}>
+                      W{agentMeta.wave} · Agent Conversation
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.3 }}>
+                      {agentMeta.label || drawerAgent}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    {verdict.verdict && (
+                      <span style={{ fontFamily: 'monospace', fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: 3, background: verdictBg, color: verdictColor }}>
+                        {verdict.verdict}
+                      </span>
+                    )}
+                    <button
+                      onClick={closeDrawer}
+                      style={{ background: 'transparent', border: '1px solid #ffffff20', borderRadius: 4, color: '#ffffff60', fontSize: 14, cursor: 'pointer', padding: '2px 8px', lineHeight: 1 }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                {summary && (
+                  <div style={{ marginTop: 10, fontSize: 10, color: '#94a3b8', lineHeight: 1.6, background: '#ffffff08', borderRadius: 4, padding: '7px 10px' }}>
+                    {summary}
+                  </div>
+                )}
+
+                {/* KPI chips */}
+                {kpis.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                    {kpis.slice(0, 4).map((k, i) => (
+                      <div key={i} style={{ background: '#0b1829', border: '1px solid #ffffff10', borderRadius: 4, padding: '3px 8px' }}>
+                        <div style={{ fontFamily: 'monospace', fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.05em' }}>{(k.label||'').slice(0,16)}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#e2e8f0' }}>{k.value||'—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Conversation area — scrollable */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                {/* Suggested questions — shown only when no messages yet */}
+                {drawerMessages.length === 0 && (
+                  <div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 8, color: '#64748b', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      Suggested questions
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {suggestedQs.map((q, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setDrawerInput(q);
+                          }}
+                          style={{
+                            textAlign: 'left',
+                            background: '#0b1829',
+                            border: `1px solid ${N.blue}40`,
+                            borderRadius: 6,
+                            padding: '7px 11px',
+                            color: '#93c5fd',
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            lineHeight: 1.5,
+                            fontFamily: "'Instrument Sans', sans-serif",
+                          }}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Anti-hallucination notice */}
+                    <div style={{ marginTop: 12, padding: '6px 10px', background: '#7c3aed15', border: '1px solid #7c3aed30', borderRadius: 4, fontSize: 9, color: '#a78bfa', lineHeight: 1.6 }}>
+                      This agent will only answer from what it found in the sprint. It will not invent new data or speculate beyond its analysis.
+                    </div>
+                  </div>
+                )}
+
+                {/* Conversation messages */}
+                {drawerMessages.map((msg, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    {msg.role === 'assistant' && (
+                      <div style={{ width: 22, height: 22, borderRadius: '50%', background: N.purple + '40', border: `1px solid ${N.purple}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#c4b5fd', flexShrink: 0, marginRight: 7, marginTop: 2 }}>
+                        {(SAAS_AGENTS.find(a=>a.id===drawerAgent)||{}).icon||'◈'}
+                      </div>
+                    )}
+                    <div style={{
+                      maxWidth: '82%',
+                      padding: '8px 12px',
+                      borderRadius: msg.role === 'user' ? '8px 8px 2px 8px' : '8px 8px 8px 2px',
+                      background: msg.role === 'user' ? '#1e3a5f' : (msg.isError ? '#3f1515' : '#0d1e33'),
+                      border: `1px solid ${msg.role === 'user' ? '#2563eb40' : msg.isError ? '#dc262640' : '#7c3aed25'}`,
+                      fontSize: 11,
+                      color: msg.isError ? '#fca5a5' : '#e2e8f0',
+                      lineHeight: 1.65,
+                      whiteSpace: 'pre-wrap',
+                    }}>
+                      {msg.content}{msg.isStreaming ? <span style={{ opacity: 0.7, animation: 'none', borderRight: '2px solid #c4b5fd', marginLeft: 1 }}>&nbsp;</span> : null}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Typing indicator — only shown before first token arrives */}
+                {drawerLoading && !drawerMessages.some(m => m.isStreaming && m.content.length > 0) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: N.purple + '40', border: `1px solid ${N.purple}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#c4b5fd', flexShrink: 0 }}>
+                      {(SAAS_AGENTS.find(a=>a.id===drawerAgent)||{}).icon||'◈'}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>Thinking…</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Input area */}
+              <div style={{ padding: '12px 18px 16px', borderTop: '1px solid #ffffff10', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    value={drawerInput}
+                    onChange={e => setDrawerInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !drawerLoading) { e.preventDefault(); sendDrawerMessage(); } }}
+                    placeholder={`Ask the ${agentMeta.label || 'agent'}…`}
+                    disabled={drawerLoading}
+                    style={{
+                      flex: 1,
+                      background: '#0b1829',
+                      border: '1px solid #ffffff20',
+                      borderRadius: 4,
+                      padding: '8px 11px',
+                      color: '#e2e8f0',
+                      fontSize: 11,
+                      fontFamily: "'Instrument Sans', sans-serif",
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    onClick={sendDrawerMessage}
+                    disabled={drawerLoading || !drawerInput.trim()}
+                    style={{
+                      padding: '8px 14px',
+                      background: drawerLoading || !drawerInput.trim() ? '#ffffff15' : N.blue,
+                      border: 'none',
+                      borderRadius: 4,
+                      color: '#fff',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      fontFamily: 'monospace',
+                      cursor: drawerLoading || !drawerInput.trim() ? 'not-allowed' : 'pointer',
+                      letterSpacing: '.06em',
+                    }}
+                  >
+                    {drawerLoading ? '…' : 'Send'}
+                  </button>
+                </div>
+                <div style={{ marginTop: 7, fontSize: 9, color: '#ffffff25', fontFamily: 'monospace' }}>
+                  Enter to send · Esc to close · ~$0.01 per exchange
+                </div>
+              </div>
+
+            </div>
+          </>
+        );
+      })()}
+
     </div>
   );
 }
