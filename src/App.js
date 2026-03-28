@@ -63,334 +63,8 @@ const V = {
 
 
 // ── SAAS OPPORTUNITY BRIEF PROMPT ─────────────────────────────────────────
-const SAAS_BRIEF_PROMPT = `# AGENT 11: SAAS OPPORTUNITY BRIEF
-
-You are the most senior strategic analyst on this engagement. Your output is a 2-page visual brief for a founder or VC.
-
-## CRITICAL — YOUR FIRST OUTPUT MUST BE THE DATA BLOCK
-
-STOP. Do not write any introduction, preamble, or analysis text.
-Your response must begin with <<<DATA_BLOCK>>> on the very first line.
-Fill every field with real data. Output the closing <<<END_DATA_BLOCK>>> marker.
-Only after <<<END_DATA_BLOCK>>> may you write the BOLD STATEMENT line.
-
-## DATA BLOCK — WRITE FIRST
-
-<<<DATA_BLOCK>>>
-{
-  "agent": "brief",
-  "kpis": [
-    {"label": "DERIVED metric — e.g. Revenue per Client", "value": "computed number with unit", "sub": "calculation shown inline e.g. ARR $7M ÷ 237 clients = $29.5k", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
-    {"label": "DERIVED metric — e.g. Data Monetisation Rate", "value": "computed number", "sub": "calculation shown e.g. $0 recurring ÷ 250M datapoints = $0/point", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
-    {"label": "DERIVED metric — e.g. Synthetic Cost Gap", "value": "ratio or delta vs competitor", "sub": "calculation shown e.g. $10k/poll vs Aaru $700/poll = 14x disadvantage", "trend": "up|down|flat|watch", "confidence": "H|M|L"},
-    {"label": "DERIVED metric — e.g. Threat Clock", "value": "X months remaining", "sub": "time before named competitor reaches critical mass in this company's primary segment", "trend": "up|down|flat|watch", "confidence": "H|M|L"}
-  ],
-  "moat": {
-    "core": "One sentence: what the core moat is — data asset, switching cost, network effect, regulatory, brand. Be specific: not 'strong brand' but '250M human-verified survey responses no AI can replicate in 24 months'.",
-    "durability": "H|M|L",
-    "durabilityReason": "One sentence: why it is H/M/L — what specifically protects or erodes it",
-    "breaker": "One sentence: the single thing that would break this moat — technology shift, regulatory change, data commodity, competitor move",
-    "leverage": "One sentence: the highest-value untapped application of this moat — what product or motion would compound it fastest"
-  },
-  "topChurnDriver": "One sentence: the single biggest reason clients leave or pause — be specific: not 'competition' but 'election cycle dependency — clients pause in off-years because there is no recurring product that creates value between campaigns'. This reveals the deepest product-market fit gap.",
-  "strengthsAndDeltas": [
-    {
-      "asset": "Name of the working asset — e.g. 'Embold non-partisan brand'",
-      "currentState": "One sentence: what it is today — reach, usage, revenue contribution. Be specific with numbers.",
-      "delta": "One sentence: what happens to ARR if this asset is doubled down on — specific number and mechanism. Format: +$XM ARR if [specific action].",
-      "arrDelta": 0
-    }
-  ],
-  "strategicTension": "One precise sentence: [signal A] while [signal B] — this means [implication]. Max 160 chars. Name the specific metric and the specific consequence.",
-  "radarAxes": [
-    {"axis": "Market Timing", "today": 0, "future": 0},
-    {"axis": "Product Moat", "today": 0, "future": 0},
-    {"axis": "Revenue Quality", "today": 0, "future": 0},
-    {"axis": "GTM Efficiency", "today": 0, "future": 0},
-    {"axis": "Competitive Pos.", "today": 0, "future": 0},
-    {"axis": "Capital Efficiency", "today": 0, "future": 0}
-  ],
-  "segmentMap": [
-    {
-      "segment": "Segment name",
-      "sizeMr": 0,
-      "status": "owned|partial|at_risk",
-      "growth": "high|medium|low",
-      "threat": "Named competitor colonising this segment — blank if fully owned",
-      "windowMonths": 0,
-      "switchingCost": "LOW|MED|HIGH — how hard is it for a client in this segment to switch to the named competitor. LOW = no contract, commodity product, zero migration cost. HIGH = deep integration, proprietary data, long contract."
-    }
-  ],
-  "revenueGaps": [
-    {
-      "gap": "gap description — what is missing",
-      "arrGapM": 0,
-      "playType": "SCALE|TRANSFORM|DEFEND",
-      "mechanism": "specific motion — what action closes this gap",
-      "bestPlaced": "Named competitor best positioned to take this gap if company does not move",
-      "windowMonths": 0,
-      "confidence": "H|M|L"
-    }
-  ],
-  "marketSignals": [
-    {
-      "signal": "signal name (max 20 chars)",
-      "evidence": "one evidence line with ARR/funding/customers (max 45 chars)",
-      "competitorPlay": "what that competitor is specifically doing in this signal — one action (max 50 chars)",
-      "momentum": "accelerating|building|mainstream|emerging|declining",
-      "months18": "accelerating|building|mainstream|emerging|declining",
-      "headroomPct": 0,
-      "playType": "SCALE|TRANSFORM|DEFEND"
-    }
-  ],
-  "moves": [
-    {
-      "title": "4 words max — name the motion or segment",
-      "segment": "segment or motion targeted",
-      "arrImpactM": 0,
-      "playType": "SCALE|TRANSFORM|DEFEND",
-      "mechanism": "specific motion — how this company reaches scale on this gap",
-      "orgInstruction": "what must change — hire, build, restructure, ring-fence. One sentence.",
-      "companyHas": "What the company already has that makes this move executable — data, relationships, product, team",
-      "companyNeeds": "What the company still needs to build or hire to execute — be honest",
-      "companyHas": "What the company already has that makes this move executable — data, product, relationships, team. One sentence.",
-      "companyNeeds": "What the company must still build or hire — be honest. One sentence.",
-      "pricingNote": "If the current pricing model is misaligned with this move — name it. E.g. 'CR charges per poll; correct metric is per seat — same clients at 3x ACV'. Leave blank if pricing is correctly aligned.",
-      "contrarian": "The one insight the CEO has not considered — the non-obvious angle that makes this move more valuable or more urgent than it appears. One sentence. Do not restate the mechanism.",
-      "confidence": "CONFIRMED|DERIVED|ESTIMATED|SIGNAL ONLY",
-      "timeToRevenue": "Q1 2026",
-      "filters": ["tag1", "tag2"],
-      "rationale": "one sentence max 120 chars — why this company specifically, not a generic player",
-      "evidence": "one evidence line with source max 80 chars"
-    }
-  ],
-  "competitorThreats": [
-    {
-      "name": "competitor name",
-      "arrEst": "$XM",
-      "targeting": "which segment or motion they are colonising — be specific",
-      "threatBy": "Q3 2026",
-      "confidence": "H|M|L"
-    }
-  ],
-  "diffDurability": [
-    {
-      "advantage": "Name of the differentiator — e.g. 'Human demographic accuracy'",
-      "durabilityMonths": 0,
-      "durabilityLabel": "Durable|~X mo|X-Y mo — use 'Durable' if >36 months, otherwise est. months",
-      "erodingForce": "One sentence: what is actively eroding this advantage and at what pace",
-      "isUrgent": false
-    }
-  ],
-  "winningScenario": "Exactly 2 sentences. S1: if all 3 moves land, what does this company look like in 18 months — specific revenue, specific product, specific market position. S2: what is the single hardest thing that must go right for this scenario to happen.",
-  "arrivalSequence": [],
-  "globalComps": [
-    {
-      "market": "US|EU|IL|SEA|IN",
-      "company": "comp company name",
-      "stage": "what stage they were at when facing same dynamic (max 40 chars)",
-      "whatHappened": "outcome — one line (max 60 chars)",
-      "prediction": "what this predicts for this company — one line (max 60 chars)",
-      "expansionNote": ""
-    }
-  ],
-  "internationalPosture": "EXPAND|DEFEND|DOMESTIC",
-  "page1Summary": "Exactly 2 sentences. S1: the single most important gap right now — which segment is at risk, how large, who is moving in, what right to win this company has. S2: why the window is closing NOW — what makes this urgent in the next 18 months. Home market only. Max 280 chars total.",
-  "boldStatement": "One sentence. Max 140 chars. Names the specific window, the competitor who takes it if this company does not move, and the timeframe.",
-  "categoryRead": {
-    "globalTrend": "One sentence: where this category is structurally heading. No company names. Max 120 chars.",
-    "leadMarket": "US|EU|IL|SEA",
-    "homeMarketLag": "lag description or 'US is lead market'",
-    "implication": "One sentence: what the structural shift means for this company's window. Max 120 chars."
-  },
-  "sectionHeaders": {
-    "segmentMap": "8 words max — what the coverage map reveals",
-    "revenueGaps": "8 words max — the single most important gap pattern",
-    "marketSignals": "8 words max — what competitors are proving this company hasn't done",
-    "radarGap": "8 words max — what the transformation requires"
-  }
-}
-<<<END_DATA_BLOCK>>>
-
-
-## FIELD INSTRUCTIONS — READ BEFORE WRITING DATA BLOCK
-
-**kpis**: 4 DERIVED metrics only — computed from combining multiple data points. Never raw ARR or headcount. Each must show a calculation inline. Pick metrics that make Mike pause: cost disadvantage vs competitor, data asset monetisation rate, competitive velocity, cycle decay.
-
-**topChurnDriver**: Name the single most common reason clients leave or pause — not "competition" but the specific behaviour. Election cycle dependency, switching to cheaper tool, dissatisfaction with delivery time. This is what a CEO needs to hear most because it reveals the hidden product-market fit gap.
-
-**strengthsAndDeltas**: 2-3 rows maximum. Only assets that are ACTIVELY WORKING but UNDER-LEVERAGED. Each must have a specific ARR delta with a mechanism. Never include assets that are already fully utilised or already generating subscription revenue.
-
-**diffDurability**: 3 rows maximum. One per core differentiator. durabilityMonths must be a genuine estimate — not "forever" for any advantage. isUrgent = true if window < 12 months. erodingForce must name the specific technology or competitor creating the erosion pressure.
-
-**moat**: This is the most important section. Be specific and honest. Durability H = competitor cannot replicate in 24 months. M = 12-18 months. L = already replicable. The breaker must be the SINGLE most plausible threat. The leverage must be the highest-value untapped application — what this company could do with its moat that no one has tried yet.
-
-**strategicTension**: The sentence Mike reads and thinks "that's exactly it." Name the specific metric contradiction and the specific 18-month consequence. Bad: "strong growth faces competition." Good: "250M datapoints generate $0 recurring while Aaru closes accuracy gap at 1/10th cost — the archive becomes stranded in 18 months."
-
-**segmentMap**: Maximum 5 rows. windowMonths = months before a named competitor locks this segment. 0 = already lost. 36+ = no urgency. Be honest about at_risk segments.
-
-**revenueGaps**: Maximum 4 rows. bestPlaced = the competitor most likely to take this gap if the company does not move — name them specifically. windowMonths = months before this gap closes or gets locked. Be aggressive with estimates.
-
-**marketSignals**: Maximum 5 rows. competitorPlay = what that specific competitor is ACTIVELY DOING in this signal space — not what they could do, what they ARE doing with evidence.
-
-**moves**: Exactly 3 moves. companyHas must be honest about existing assets — data, product, relationships, team. companyNeeds must be honest about gaps — if they need to hire an ML engineer, say so. This is what makes the brief credible.
-
-**winningScenario**: Make it specific. Not "becomes a platform" but "$12M ARR with 60% subscription by Q3 2027, Magnify AI SaaS at 120 enterprise seats, Embold at $4M non-partisan revenue." Then name the single hardest thing.
-
-**globalComps**: 3 comps maximum. Pick comps where the outcome teaches something specific — one that won, one that lost, one that took a different path. The prediction must be actionable, not observational.
-
-**page1Summary**: This is the last thing on Page 1. It must land like a punch. Two sentences, no throat-clearing, no "Change Research is a..." opener.
-
-**boldStatement**: The thing Mike will forward to his board. One sentence. Makes the threat and the window concrete.
-
-
-## AFTER THE DATA BLOCK
-
-Write exactly this after the DATA_BLOCK — nothing else:
-
-**BOLD STATEMENT:**
-[Your boldStatement here]
-
-Do not add any other prose, headers, or sections. The DATA_BLOCK is the complete output. The bold statement line is the only thing after it.
-
----
-
-## YOUR SYNTHESIS APPROACH — READ BEFORE FILLING THE DATA BLOCK
-# AGENT 11: SAAS OPPORTUNITY BRIEF
-
-## ⚡ CRITICAL — DO THIS FIRST BEFORE ANYTHING ELSE
-
-Your FIRST action must be to write the DATA_BLOCK below. Do not write any prose, analysis, or explanation before the DATA_BLOCK. Begin your response with <<<DATA_BLOCK>>> on the very first line. End the DATA_BLOCK with <<<END_DATA_BLOCK>>> on its own line before writing anything else.
-
-After completing the DATA_BLOCK, write exactly:
-
-**BOLD STATEMENT:**
-[one sentence]
-
-That is all. No other prose.
-
-## DATA BLOCK — WRITE THIS FIRST on this engagement. You have read every agent output and the full synopsis. Your job is one thing: produce a 2-page visual brief that makes a founder or VC want to read the full report.
-
-
-
-## YOUR SYNTHESIS APPROACH
-
-Read every agent output systematically before writing anything:
-- Agent 1 (Market): category timing, TAM, structural forces → MARKET SIGNAL TABLE (home market signals only)
-- Agent 2 (Product): moat components, disintermediation risk → STRATEGIC TENSION
-- Agent 3 (GTM): motion efficiency, PLG/enterprise balance → REVENUE GAP TABLE + MOVES
-- Agent 4 (Revenue): ARR health, Rule of 40, unit economics → KPI STRIP (derived metrics only)
-- Agent 5 (Customer): ICP coverage, segment health, churn → SEGMENT COVERAGE MAP + topChurnDriver (single biggest reason clients leave — the product-market fit gap)
-- Agent 6 (Competitive): THREE things — (a) moat threats → COMPETITIVE THREAT TIMELINE; (b) home-market competitors proving untried motions → MARKET SIGNALS TABLE; (c) switching cost per segment → segmentMap.switchingCost + diffDurability (which differentiators survive 18 months and which erode)
-- Agent 7 (Funding): (a) valuation context, exit scenarios → KPI STRIP + VERDICT; (b) acquirer/investor assets not yet activated for this product → COMPETITIVE EDGE section
-- Agent 8 (Pricing): pricing power, model stress → REVENUE GAP TABLE + moves.pricingNote (is the value metric correctly aligned for each move)
-- Agent 9 (International): global comps, expansion signals → GLOBAL COMP SIGNAL (Page 2) + ARRIVAL SEQUENCE (Page 2, conditional on internationalPosture)
-
-PAGE 1 IS HOME MARKET ONLY. Every data point on Page 1 describes what is happening in this company's home market — segment gaps, revenue gaps, what home market competitors are doing, structural edge. No international comps or arrival signals on Page 1.
-
-PAGE 2 IS INTERNATIONAL + ACTION. Page 2 shows: what this company must do (Strategic Tension + Radar + 3 Moves), then global category context, then what is arriving internationally and when, then the global comp pattern match, then competitors, then verdict.
-
-CRITICAL — ONE JOB PER SURFACE:
-- marketSignals (Page 1): home market players proving a motion/segment this company hasn't addressed — specific companies, commercial evidence, implication
-- competitiveEdge (Page 1): acquirer/investor assets not yet applied to this product, OR standalone structural advantages. NEVER suggest distribution or enterprise relationship assets without cited evidence — assume they are already activated.
-- arrivalSequence (Page 2): international category shifts arriving in this market — when, how, what company must do before inflection
-- globalComps (Page 2): reference companies 12-24 months ahead — pattern match for founder/VC
-- page1Summary: home market position + structural constraint only. No international content.
-
-## THREE PLAY TYPES — CLASSIFY EVERY GAP AND MOVE
-
-**SCALE**
-Extend the existing motion using existing distribution/product. Win by executing faster and deeper on what already works. No new capability required.
-Badge: Navy.
-
-**TRANSFORM**
-Requires a fundamentally different motion — PLG to enterprise, single-product to platform, usage-based to seat-based. Company must build a capability it does not currently have. High risk, high ceiling.
-Badge: Purple.
-
-**DEFEND**
-A specific competitor or category shift is actively eroding a position. Move is about protecting before expanding. Speed matters more than size here.
-Badge: Red.
-
-## THE STRATEGIC TENSION — MOST IMPORTANT OUTPUT
-
-The Strategic Tension is the single most valuable sentence in the brief. It names the specific contradiction the company is navigating — the thing the founder knows is true but has not seen written precisely. It sits at the top of Page 2 and frames everything that follows.
-
-Format: "[Signal A] while [Signal B] — this means [implication for next 18 months]."
-Example: "PLG motion driving 70% of new ARR while enterprise ACV is 4x higher — the company is optimising for acquisition velocity at the cost of revenue quality, and the window to correct this closes when the first enterprise competitor enters the ICP."
-
-Bad tension: "The company has strong growth but faces competitive pressure." (Generic — any company.)
-Good tension: Names the specific metric, the specific contradiction, the specific 18-month consequence.
-
-## GLOBAL COMP SIGNAL — POSTURE-AWARE
-
-This section renders differently based on internationalPosture. Read the posture you assigned and write accordingly:
-
-**If EXPAND:** Pick 4-5 companies that expanded internationally from a similar starting point. For each: which markets they entered first, what motion they used (PLG self-serve vs enterprise sales), what worked and what didn't, and what it predicts for this company's expansion sequence. This is the expansion playbook section — give the founder a concrete sequencing model.
-
-**If DEFEND:** Pick 4-5 companies that faced a similar international competitive threat arriving in their home market. For each: what the threat was, how they responded (ignored/copied/acquired/partnered), what happened, and what it predicts for this company's defence strategy.
-
-**If DOMESTIC:** Pick 4-5 companies at a comparable stage who faced the same structural category shift (not international expansion — same product/market dynamic). For each: what they did, what happened, and what it predicts for this company. Frame as strategic mirrors, not expansion comps. Header will read "COMPARABLE TRAJECTORIES."
-
-In all cases: company name, what stage, what happened (max 60 chars), what it predicts for this company (max 60 chars).`;
-
-// ── SAAS MAKE PROMPT ────────────────────────────────────────────────────────
-function makeSaaSPrompt(id, company, acquirer, ctx, synthCtx) {
-  const acqName = acquirer && acquirer.trim() ? acquirer.trim() : null;
-  const hasAcquirer = !!acqName;
-
-  const contextBlock = hasAcquirer
-    ? `ACQUISITION CONTEXT: This analysis covers ${company} in the context of a potential acquisition by or strategic relationship with ${acqName}. Agent 7 (Funding) should specifically model this acquisition scenario.`
-    : `COMPANY CONTEXT: This is a standalone analysis of ${company}. Focus on the company's own strategic position, competitive dynamics, and growth options.`;
-
-  let prompt = contextBlock + '\n\n';
-
-  if (ctx) {
-    prompt += `USER CONTEXT:\n${ctx}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-  }
-
-  // Replace [COMPANY] and [ACQUIRER] placeholders
-  prompt = prompt.replace(/\[COMPANY\]/g, company);
-  prompt = prompt.replace(/\[ACQUIRER\]/g, acqName || 'the acquirer');
-
-  // Add prior agent outputs for synopsis/W2
-  if (synthCtx && Object.keys(synthCtx).length > 0) {
-    const agentNames = {
-      market:      'AGENT 1: MARKET & CATEGORY INTELLIGENCE',
-      product:     'AGENT 2: PRODUCT & PLATFORM ARCHITECTURE',
-      gtm:         'AGENT 3: GO-TO-MARKET & REVENUE ARCHITECTURE',
-      revenue:     'AGENT 4: REVENUE HEALTH & UNIT ECONOMICS',
-      customer:    'AGENT 5: CUSTOMER & SEGMENT INTELLIGENCE',
-      competitive: 'AGENT 6: COMPETITIVE MOAT & BATTLEGROUND',
-      funding:     'AGENT 7: FUNDING, VALUATION & STRATEGIC OPTIONS',
-      pricing:     'AGENT 8: PRICING POWER & REVENUE MODEL',
-      intl:        'AGENT 9: INTERNATIONAL EXPANSION & BENCHMARKS',
-    };
-    let priorContext = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPRIOR AGENT OUTPUTS (FOR SYNTHESIS)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    Object.entries(synthCtx).forEach(([agentId, result]) => {
-      const agentName = agentNames[agentId] || agentId.toUpperCase();
-      const dbMatch2 = typeof result === 'string' ? result.match(/<<<DATA_BLOCK>>>([\s\S]*?)<<<END_DATA_BLOCK>>>/) : null;
-      const dataBlock2 = dbMatch2 ? '<<<DATA_BLOCK>>>' + dbMatch2[1] + '<<<END_DATA_BLOCK>>>' : '';
-      const withoutBlock = typeof result === 'string'
-        ? result.replace(/<<<DATA_BLOCK>>>[\s\S]*?<<<END_DATA_BLOCK>>>/g, '').trim()
-        : '';
-      const trimmed = dataBlock2 + '\n\n' + withoutBlock.slice(0, 2500) + (withoutBlock.length > 2500 ? ' [...truncated for synthesis...]' : '');
-      priorContext += `## ${agentName}\n${trimmed}\n\n`;
-    });
-    prompt += priorContext;
-  }
-
-  // For brief: prepend the full SAAS_BRIEF_PROMPT so server receives complete instructions
-  // Server passes cleanedUserContext directly for brief — so prompt must include everything
-  if (id === 'brief') {
-    return SAAS_BRIEF_PROMPT + '\n\n' + prompt;
-  }
-
-  // For all other agents: server injects agent prompt via SAAS_PROMPTS
-  // Just pass company/agent marker so server knows which prompt to inject
-  prompt += `\nCOMPANY: ${company}\nAGENT_ID: ${id}`;
-
-  return prompt;
-}
+// ── SAAS_BRIEF_PROMPT moved to server.js (private repo) ─────────────────
+// ── makeSaaSPrompt moved to server.js (private repo) ────────────────────
 
 
 // ── SAAS VISUAL RENDERERS ─────────────────────────────────────────────────
@@ -1842,7 +1516,7 @@ export default function AdvisorSprintIntelligence() {
   const timerRef = useRef(null);
 
   // ── callClaude ─────────────────────────────────────────────────────────────
-  const callClaude = useCallback(async (prompt, agentId, signal) => {
+  const callClaude = useCallback(async (agentId, params, signal) => {
     if (MOCK_MODE) {
       await new Promise(r => setTimeout(r, 1500));
       return `<<<DATA_BLOCK>>>\n{"agent":"${agentId}","kpis":[{"label":"Test","value":"OK","sub":"mock","trend":"up","confidence":"M"}],"verdictRow":{"verdict":"WATCH","finding":"Mock mode — no real data","confidence":"M"}}\n<<<END_DATA_BLOCK>>>\n\nMock analysis for ${agentId}.`;
@@ -1872,7 +1546,7 @@ export default function AdvisorSprintIntelligence() {
           headers: authHeaders({ 'x-tool-name': 'advisor-intelligence', 'Cache-Control': 'no-store' }),
           cache: 'no-store',
           signal,
-          body: JSON.stringify({ prompt, agentId, market: 'US', mode: 'saas' }),
+          body: JSON.stringify({ agentId, mode: 'saas', market: 'US', ...params }),
         });
       } catch (fetchErr) {
         if (signal.aborted) throw fetchErr;
@@ -1948,9 +1622,9 @@ export default function AdvisorSprintIntelligence() {
   }, [setSources, setStatuses]);
 
   // ── runAgent ────────────────────────────────────────────────────────────────
-  const runAgent = useCallback(async (id, prompt, signal) => {
+  const runAgent = useCallback(async (id, params, signal) => {
     try {
-      const text = await callClaude(prompt, id, signal);
+      const text = await callClaude(id, params, signal);
       if (!signal.aborted) {
         // Normalise: strip outer backtick fences if model wrapped response
         const normText = text.replace(/^```json\s*/,'').replace(/\s*```$/,'');
@@ -2132,10 +1806,10 @@ export default function AdvisorSprintIntelligence() {
           ctx_for_agent = w1texts;
         }
 
-        const prompt = makeSaaSPrompt(id, co, acq, ctxWithMeta, ctx_for_agent);
+        const agentParams = { company: co, acquirer: acq, ctx: ctxWithMeta, synthCtx: ctx_for_agent };
         let text = "";
         try {
-          text = await runAgent(id, prompt, signal);
+          text = await runAgent(id, agentParams, signal);
         } catch(agentErr) {
           console.error(`[Sprint] Agent ${id} failed:`, agentErr.message);
           setAppState("error");
@@ -2919,8 +2593,7 @@ STAGE: ${stage}
 ${acquisitionMode && acq ? `ACQUIRER: ${acq}
 ` : ''}${ctx ? `ADDITIONAL CONTEXT: ${ctx}
 ` : ''}`;
-      const prompt = makeSaaSPrompt('brief', co, acq, ctxWithMeta, w1texts);
-      await runAgent('brief', prompt, signal);
+      await runAgent('brief', { company: co, acquirer: acq, ctx: ctxWithMeta, synthCtx: w1texts }, signal);
       setStatuses(s => ({ ...s, brief: "done" }));
       setAppState("done");
     } catch(e) {
@@ -2954,8 +2627,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
 
       // Run synopsis
       setStatuses(s => ({ ...s, synopsis: "running" }));
-      const synopsisPrompt = makeSaaSPrompt('synopsis', co, acq, ctxWithMeta, w1texts);
-      const synopsisText = await runAgent('synopsis', synopsisPrompt, signal);
+      const synopsisText = await runAgent('synopsis', { company: co, acquirer: acq, ctx: ctxWithMeta, synthCtx: w1texts }, signal);
       w1texts['synopsis'] = synopsisText;
       setStatuses(s => ({ ...s, synopsis: "done" }));
 
@@ -2964,8 +2636,7 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
 
       // Run brief
       setStatuses(s => ({ ...s, brief: "running" }));
-      const briefPrompt = makeSaaSPrompt('brief', co, acq, ctxWithMeta, w1texts);
-      const briefText = await runAgent('brief', briefPrompt, signal);
+      const briefText = await runAgent('brief', { company: co, acquirer: acq, ctx: ctxWithMeta, synthCtx: w1texts }, signal);
       w1texts['brief'] = briefText;
       setStatuses(s => ({ ...s, brief: "done" }));
 
