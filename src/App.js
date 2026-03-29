@@ -1489,6 +1489,8 @@ export default function AdvisorSprintIntelligence() {
   const [acquirer, setAcquirer] = useState("");
   const [sector, setSector] = useState("SaaS");
   const [stage, setStage] = useState("Late Stage");
+  const [isPublic, setIsPublic] = useState(false);
+  const [ticker, setTicker] = useState("");
   const [context, setContext] = useState("");
   const [acquisitionMode, setAcquisitionMode] = useState(false);
 
@@ -1510,6 +1512,7 @@ export default function AdvisorSprintIntelligence() {
   const [drawerLoading, setDrawerLoading] = useState(false);  // API call in flight
   const [sources, setSources] = useState([]);
   const [statuses, setStatuses] = useState({});
+  const [dataIntel, setDataIntel] = useState(null);
   const [elapsed, setElapsed] = useState(0);
 
   const abortRef = useRef(null);
@@ -1577,6 +1580,7 @@ export default function AdvisorSprintIntelligence() {
             if (!line.startsWith('data: ')) continue;
             try {
               const event = JSON.parse(line.slice(6));
+              if (event.type === 'data_status') setDataIntel(event);
               if (event.type === 'chunk') fullText += event.text;
               if (event.type === 'searching') setStatuses(s => ({ ...s, [agentId]: `searching: ${event.query.slice(0,40)}…` }));
               if (event.type === 'retrying')  setStatuses(s => ({ ...s, [agentId]: event.message || 'API overloaded — retrying…' }));
@@ -1765,6 +1769,7 @@ export default function AdvisorSprintIntelligence() {
     const agentsToRun = testMode ? ['market'] : SAAS_AGENTS.map(a => a.id);
     SAAS_AGENTS.forEach(a => initStatus[a.id] = agentsToRun.includes(a.id) ? "queued" : "idle");
     setStatuses(initStatus);
+    setDataIntel(null);
 
     try {
       setAppState("running");
@@ -1806,7 +1811,7 @@ export default function AdvisorSprintIntelligence() {
           ctx_for_agent = w1texts;
         }
 
-        const agentParams = { company: co, acquirer: acq, ctx: ctxWithMeta, synthCtx: ctx_for_agent };
+        const agentParams = { company: co, acquirer: acq, ctx: ctxWithMeta, synthCtx: ctx_for_agent, isPublic, ticker: ticker.trim(), stage, sector };
         let text = "";
         try {
           text = await runAgent(id, agentParams, signal);
@@ -2922,11 +2927,25 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
             <label style={{ display: 'block', fontFamily: 'monospace', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: N.blueMid, marginBottom: 6 }}>Stage</label>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {["Series B", "Series C", "Late Stage", "Public"].map(s => (
-                <button key={s} onClick={() => appState !== 'running' && setStage(s)}
+                <button key={s} onClick={() => { if(appState !== 'running'){ setStage(s); setIsPublic(s === 'Public'); } }}
                   style={{ padding: '6px 12px', border: `1px solid ${stage===s?N.blue:'#ffffff20'}`, borderRadius: 4, background: stage===s?N.blue:'transparent', color: stage===s?'#fff':'#ffffff80', fontFamily: "'Instrument Sans'", fontSize: 11, fontWeight: stage===s?700:400, cursor: appState==='running'?'not-allowed':'pointer' }}>{s}</button>
               ))}
             </div>
           </div>
+
+          {/* Ticker field — shown when Public */}
+          {isPublic && (
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontFamily: 'monospace', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: N.blueMid, marginBottom: 6 }}>
+                Ticker Symbol
+                <span style={{ marginLeft: 8, fontWeight: 400, textTransform: 'none', color: '#ffffff50', fontSize: 9 }}>optional — auto-detected if blank</span>
+              </label>
+              <input type="text" value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())}
+                disabled={appState === 'running'}
+                placeholder="e.g. AMKR, CRM, SNOW"
+                style={{ width: '100%', padding: '9px 12px', border: `1px solid ${N.blue}`, borderRadius: 4, fontFamily: 'monospace', fontSize: 13, background: '#ffffff0d', color: '#fff', letterSpacing: '.08em' }} />
+            </div>
+          )}
 
           {/* Acquisition toggle */}
           <div style={{ marginBottom: 18 }}>
@@ -3008,6 +3027,27 @@ ${acquisitionMode && acq ? `ACQUIRER: ${acq}
             <button onClick={cancel} style={{ width: '100%', padding: '12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '.08em', fontFamily: 'monospace' }}>
               ■ CANCEL
             </button>
+          )}
+
+          {/* ── Data Intelligence Panel ─────────────────────────── */}
+          {dataIntel && dataIntel.sources?.length > 0 && (
+            <div style={{ margin: '16px 0 8px' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: N.blueMid, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>◈</span> Data Intelligence — {dataIntel.label}
+                {dataIntel.ticker && <span style={{ color: '#ffffff40', fontWeight: 400 }}> · {dataIntel.ticker}</span>}
+              </div>
+              <div style={{ display: 'grid', gap: 3 }}>
+                {dataIntel.sources.map(s => (
+                  <div key={s.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 10px', background: s.status === 'ok' ? '#ffffff08' : '#ffffff04', border: `1px solid ${s.status === 'ok' ? '#2563eb40' : '#ffffff10'}`, borderRadius: 4 }}>
+                    <span style={{ fontSize: 10, color: s.status === 'ok' ? N.green : '#ffffff30', flexShrink: 0 }}>{s.status === 'ok' ? '✓' : '✗'}</span>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: N.blueMid, letterSpacing: '.04em' }}>{s.label}</span>
+                      <span style={{ fontFamily: "'Instrument Sans'", fontSize: 9, color: '#ffffff50', marginLeft: 8 }}>{s.detail}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Progress */}
