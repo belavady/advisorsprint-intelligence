@@ -1477,9 +1477,14 @@ const gaEvent = (name, params={}) => {
 };
 
 // ── MAIN APP COMPONENT ──────────────────────────────────────────────────────
+// Pre-set shared SaaS token so no password gate is needed
+if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('sprint_token')) {
+  sessionStorage.setItem('sprint_token', 'saas-advisorsprint-2026');
+}
+
 export default function AdvisorSprintIntelligence() {
   // ── Auth ─────────────────────────────────────────────────────────────────
-  const [sessionToken, setSessionToken] = useState(() => sessionStorage.getItem('sprint_token') || null);
+  const [sessionToken, setSessionToken] = useState(() => sessionStorage.getItem('sprint_token') || 'saas-advisorsprint-2026');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
